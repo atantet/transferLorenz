@@ -1,5 +1,5 @@
-INCDIR=
-LIBDIR=$(HOME)/Research/dev/lib/
+INCDIR=-I$(HOME)/local/include/
+LIBDIR=-L$(HOME)/local/lib/
 LIBS=-lgsl -lconfig++ -lergopack -lgomp
 CONFIG=../cfg/readConfig
 
@@ -26,7 +26,7 @@ $(CONFIG).o:$(CONFIG).cpp
 	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
 
 $(EXE).out:$(EXE).o $(CONFIG).o
-	$(CC) $(LDFLAGS) -o $@ $^ -L$(LIBDIR) $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBDIR) $(LIBS)
 
 clean:
 	rm -f $(EXE).o $(EXE).out
