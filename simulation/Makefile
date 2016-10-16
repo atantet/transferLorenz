@@ -1,12 +1,12 @@
-INCDIR=
-LIBDIR=$(HOME)/Research/dev/lib/
-LIBS=-lgsl -lconfig++ -lergopack -lgomp
+INCDIR=-I$(HOME)/local/include/
+LIBDIR=-L$(HOME)/local/lib/
+LIBS=-lgsl -lgslcblas -lconfig++ -lergopack -lgomp
 CONFIG=../cfg/readConfig
 
-CC=g++
+CC=icc
 WARN=-Wall -Wformat=0
-CFLAGS=$(WARN) -pedantic-errors -O3
-LDFLAGSSTD=-undefined dynamic_lookup
+CFLAGS=$(WARN) -O3
+LDFLAGSSTD=
 LDFLAGSGDB=$(LDFLAGSSTD) -gdb
 
 LDFLAGS=$(LDFLAGSSTD)
@@ -26,7 +26,7 @@ $(CONFIG).o:$(CONFIG).cpp
 	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
 
 $(EXE).out:$(EXE).o $(CONFIG).o
-	$(CC) $(LDFLAGS) -o $@ $^ -L$(LIBDIR) $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBDIR) $(LIBS)
 
 clean:
 	rm -f $(EXE).o $(EXE).out

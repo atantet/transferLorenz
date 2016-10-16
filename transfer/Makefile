@@ -1,11 +1,12 @@
-LIBDIR=$(HOME)/Research/dev/lib/
-LIBS=-lgsl -lconfig++ -lergopack -lgomp
+INCDIR=-I$(HOME)/local/include/
+LIBDIR=-L$(HOME)/local/lib/
+LIBS=-lgsl -lgslcblas -lconfig++ -lergopack -lgomp
 CONFIG=../cfg/readConfig
 
-CC=g++
+CC=icc -openmp
 WARN=-Wall -Wformat=0
-CFLAGS=$(WARN) -pedantic-errors -O3
-LDFLAGSSTD=-undefined dynamic_lookup
+CFLAGS=$(WARN) -O3
+LDFLAGSSTD=
 LDFLAGSGDB=$(LDFLAGSSTD) -gdb
 
 LDFLAGS=$(LDFLAGSSTD)
@@ -14,6 +15,7 @@ LDFLAGS=$(LDFLAGSSTD)
 EXE=transfer
 
 all:$(EXE).out
+	mkdir -p ../results/grid
 	mkdir -p ../results/transfer/forwardTransition
 	mkdir -p ../results/transfer/backwardTransition
 	mkdir -p ../results/transfer/initDist
@@ -21,13 +23,13 @@ all:$(EXE).out
 	mkdir -p ../results/transfer/gridMem
 
 $(EXE).o:$(EXE).cpp
-	$(CC) -c $(CFLAGS) -o $@ $<
+	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
 
 $(CONFIG).o:$(CONFIG).cpp
-	$(CC) -c $(CFLAGS) -o $@ $<
+	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
 
 $(EXE).out:$(EXE).o $(CONFIG).o
-	$(CC) $(LDFLAGS) -o $@ $^ -L$(LIBDIR) $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBDIR) $(LIBS)
 
 clean:
 	rm -f $(EXE).o $(EXE).out
