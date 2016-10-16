@@ -20,6 +20,7 @@ all:$(EXE).out
 	mkdir -p ../results/transfer/initDist
 	mkdir -p ../results/transfer/finalDist
 	mkdir -p ../results/transfer/gridMem
+	mkdir -p ../results/grid/
 
 $(EXE).o:$(EXE).cpp
 	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<

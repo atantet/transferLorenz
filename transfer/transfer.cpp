@@ -92,8 +92,8 @@ int main(int argc, char * argv[])
 
 
   // Get membership vector
-  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.txt",
-	  resDir, gridPostfix);
+  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
+	  resDir, gridPostfix, file_format);
   if (! readGridMem)
     {
       // Open time series file
@@ -108,7 +108,10 @@ int main(int argc, char * argv[])
       // Read one-dimensional time series
       std::cout << "Reading trajectory in " << srcFileName << std::endl;
       traj = gsl_matrix_alloc(nt0, dim);
-      gsl_matrix_fread(srcStream, traj);
+      if (strcmp(file_format, "bin") == 0)
+	gsl_matrix_fread(srcStream, traj);
+      else
+	gsl_matrix_fscanf(srcStream, traj);
 
       // Close 
       fclose(srcStream);
@@ -146,7 +149,10 @@ int main(int argc, char * argv[])
       gridMemVector = getGridMemVector(states, grid);
 
       // Write grid membership
-      gsl_vector_uint_fprintf(gridMemStream, gridMemVector, "%d");
+      if (strcmp(file_format, "bin") == 0)
+	gsl_vector_uint_fwrite(gridMemStream, gridMemVector);
+      else
+	gsl_vector_uint_fprintf(gridMemStream, gridMemVector, "%d");
     
       // Close stream and free
       fclose(gridMemStream);
@@ -168,7 +174,10 @@ int main(int argc, char * argv[])
       
       // Read grid membership
       gridMemVector = gsl_vector_uint_alloc(nt);
-      gsl_vector_uint_fscanf(gridMemStream, gridMemVector);
+      if (strcmp(file_format, "bin") == 0)
+	gsl_vector_uint_fread(gridMemStream, gridMemVector);
+      else
+	gsl_vector_uint_fscanf(gridMemStream, gridMemVector);
 
       // Close stream
       fclose(gridMemStream);
@@ -188,8 +197,8 @@ int main(int argc, char * argv[])
 
 
       // Get full membership matrix
-      std::cout << "Getting full membership matrix from the list of membership vecotrs..."
-		<< std::endl;
+      std::cout << "Getting full membership matrix from the list \
+of membership vecotrs..." << std::endl;
       gridMemMatrix = memVector2memMatrix(gridMemVector, tauNum);
 
       
@@ -200,37 +209,42 @@ int main(int argc, char * argv[])
 
       // Write results
       // Write forward transition matrix
-      std::cout << "Writing forward transition matrix and initial distribution..." << std::endl;
+      std::cout << "Writing forward transition matrix and initial distribution..."
+		<< std::endl;
       sprintf(forwardTransitionFileName,
-	      "%s/transfer/forwardTransition/forwardTransition%s.coo",
-	      resDir, postfix);
-      transferOp->printForwardTransition(forwardTransitionFileName, "%.12lf");
+	      "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
+	      resDir, postfix, file_format);
+      transferOp->printForwardTransition(forwardTransitionFileName,
+					 file_format, "%.12lf");
 
       // Write initial distribution
       if (lag == 0)
 	{
-	  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.txt",
-		  resDir, gridPostfix);
-	  transferOp->printInitDist(initDistFileName, "%.12lf");
+	  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
+		  resDir, gridPostfix, file_format);
+	  transferOp->printInitDist(initDistFileName,
+				    file_format, "%.12lf");
 	}
       
       // Write backward transition matrix
       if (!stationary)
 	{
-	  std::cout << "Writing backward transition matrix and final distribution..." << std::endl;
+	  std::cout << "Writing backward transition matrix \
+and final distribution..." << std::endl;
 	  sprintf(backwardTransitionFileName,
-		  "%s/transfer/backwardTransition/backwardTransition%s.coo",
-		  resDir, postfix);
+		  "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
+		  resDir, postfix, file_format);
 	  transferOp->printBackwardTransition(backwardTransitionFileName,
-					      "%.12lf");
+					      file_format, "%.12lf");
 
 	  // Write final distribution 
 	  if (lag == 0)
 	    {
 	      sprintf(finalDistFileName,
-		      "%s/transfer/finalDist/finalDist%s.txt",
-		      resDir, postfix);
-	      transferOp->printFinalDist(finalDistFileName, "%.12lf");
+		      "%s/transfer/finalDist/finalDist%s.%s",
+		      resDir, postfix, file_format);
+	      transferOp->printFinalDist(finalDistFileName,
+					 file_format, "%.12lf");
 	    }
 	}
 	
@@ -245,3 +259,4 @@ int main(int argc, char * argv[])
 		
   return 0;
 }
+
