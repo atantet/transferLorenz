@@ -73,26 +73,26 @@ int main(int argc, char * argv[])
       // Get file names
       sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tau * 1000));
       sprintf(forwardTransitionFileName, \
-	      "%s/transfer/forwardTransition/forwardTransition%s.coo",
-	      resDir, postfix);
+	      "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
+	      resDir, postfix, file_format);
       sprintf(backwardTransitionFileName, \
-	      "%s/transfer/backwardTransition/backwardTransition%s.coo",
-	      resDir, postfix);
+	      "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
+	      resDir, postfix, file_format);
       sprintf(EigValForwardFileName,
-	      "%s/spectrum/eigval/eigvalForward_nev%d%s.txt",
-	      resDir, nev, postfix);
+	      "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
+	      resDir, nev, postfix, file_format);
       sprintf(EigValForwardFileName,
-	      "%s/spectrum/eigval/eigvalForward_nev%d%s.txt",
-	      resDir, nev, postfix);
+	      "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
+	      resDir, nev, postfix, file_format);
       sprintf(EigVecForwardFileName,
-	      "%s/spectrum/eigvec/eigvecForward_nev%d%s.txt",
-	      resDir, nev, postfix);
+	      "%s/spectrum/eigvec/eigvecForward_nev%d%s.%s",
+	      resDir, nev, postfix, file_format);
       sprintf(EigValBackwardFileName,
-	      "%s/spectrum/eigval/eigvalBackward_nev%d%s.txt",
-	      resDir, nev, postfix);
+	      "%s/spectrum/eigval/eigvalBackward_nev%d%s.%s",
+	      resDir, nev, postfix, file_format);
       sprintf(EigVecBackwardFileName,
-	      "%s/spectrum/eigvec/eigvecBackward_nev%d%s.txt",
-	      resDir, nev, postfix);
+	      "%s/spectrum/eigvec/eigvecBackward_nev%d%s.%s",
+	      resDir, nev, postfix, file_format);
 
       // Read transfer operator
       std::cout << "Reading stationary transfer operator..." << std::endl;
@@ -103,11 +103,12 @@ int main(int argc, char * argv[])
 	  // Only scan initial distribution for the first lag
 	  if (lag == 0)
 	    {
-	      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.txt",
-		      resDir, gridPostfix);
+	      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
+		      resDir, gridPostfix, file_format);
 	      std::cout << "Scanning initial distribution from "
 			<< initDistFileName << std::endl;
-	      transferOp->scanInitDist(initDistFileName);
+	      transferOp->scanInitDist(initDistFileName,
+				       file_format);
 	      gsl_vector_memcpy(initDist, transferOp->initDist);
 	    }
 	  else
@@ -115,7 +116,8 @@ int main(int argc, char * argv[])
 	  // Scan forward transition matrix
 	  std::cout << "Scanning forward transition matrix from "
 		    << forwardTransitionFileName << std::endl;
-	  transferOp->scanForwardTransition(forwardTransitionFileName);
+	  transferOp->scanForwardTransition(forwardTransitionFileName,
+					    file_format);
 
 	  if (!stationary)
 	    {
@@ -123,11 +125,12 @@ int main(int argc, char * argv[])
 	      if (lag == 0)
 		{
 		  sprintf(finalDistFileName,
-			  "%s/transfer/finalDist/finalDist%s.txt",
-			  resDir, gridPostfix);
+			  "%s/transfer/finalDist/finalDist%s.%s",
+			  resDir, gridPostfix, file_format);
 		  std::cout << "Scanning final distribution from "
 			    << finalDistFileName << std::endl;
-		  transferOp->scanFinalDist(finalDistFileName);
+		  transferOp->scanFinalDist(finalDistFileName,
+					    file_format);
 		  gsl_vector_memcpy(finalDist, transferOp->finalDist);
 		}
 	      else
@@ -135,7 +138,8 @@ int main(int argc, char * argv[])
 	      // Scan backward transition matrix
 	      std::cout << "Scanning backward transition matrix from "
 			<< backwardTransitionFileName << std::endl;
-	      transferOp->scanBackwardTransition(backwardTransitionFileName);
+	      transferOp->scanBackwardTransition(backwardTransitionFileName,
+						 file_format);
 	    }
 	}
       catch (std::exception &ex)
@@ -189,14 +193,16 @@ int main(int argc, char * argv[])
 	      std::cout << "Writing forward eigenvalues and eigenvectors..."
 			<< std::endl;
 	      transferSpec->writeSpectrumForward(EigValForwardFileName,
-						 EigVecForwardFileName);
+						 EigVecForwardFileName,
+						 file_format);
 	    }
 	  if (getBackwardEigenvectors)
 	    {
 	      std::cout << "Writing backward eigenvalues and eigenvectors..."
 			<< std::endl;
 	      transferSpec->writeSpectrumBackward(EigValBackwardFileName,
-						 EigVecBackwardFileName);
+						  EigVecBackwardFileName,
+						  file_format);
 	    }
 	}
       catch (std::exception &ex)

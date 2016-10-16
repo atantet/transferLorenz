@@ -1,7 +1,11 @@
 INCDIR=-I$(HOME)/local/include/
 LIBDIR=-L$(HOME)/local/lib/
+<<<<<<< HEAD
 LIBS=-lgsl -lconfig++ -lergopack -lgomp -larpack
 #-lgslcblas
+=======
+LIBS=-lgsl -lconfig++ -lopenblas -larpack -lergopack
+>>>>>>> fd01e4fd1720162ee0dde431bafdd1e8ec5d14c3
 CONFIG=../cfg/readConfig
 
 CC=icc -openmp

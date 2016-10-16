@@ -199,11 +199,9 @@ realLabel = r'$\Re(\lambda_k)$'
 imagLabel = r'$\Im(\lambda_k)$'
 
 # Read ccf
-#LStat = L
-LStat = 101000.
 print 'Reading correlation function and periodogram...'
 srcPostfixStat = "_%s%s_L%d_spinup%d_dt%d_samp%d" \
-                 % (caseName, delayName, LStat, cfg.simulation.spinup,
+                 % (caseName, delayName, L, cfg.simulation.spinup,
                     -np.round(np.log10(cfg.simulation.dt)), printStepNum)
 corrSample = np.loadtxt('%s/correlation/%s_lag%d%s.txt'\
                         % (cfg.general.resDir, corrName,
@@ -228,13 +226,7 @@ powerSample /= 2 * np.pi
 # Get normalized weights
 weights = ergoPlot.getSpectralWeights(f, g, eigVecForward, eigVecBackward,
                                       statDist)
-prob = np.nonzero(np.abs(eigValBackward \
-                         - np.conjugate(eigValForward)) > 0.001)[0]
-for k in np.arange(prob.shape[0]):
-    idx = np.argmin(np.abs(eigValGen[prob[k]] - np.conjugate(eigValGen)))
-    weights[prob[k]] = np.conjugate(weights[idx])
-    eigenCondition[prob[k]] = eigenCondition[idx]
-
+# Remove components with heigh condition number
 weights[eigenCondition > cfg.stat.maxCondition] = 0.
 condition = np.empty(eigenCondition.shape, dtype='S1')
 condition[:] = 'k'
@@ -271,14 +263,14 @@ plt.savefig('%s/spectrum/reconstruction/%sRecComp_lag%d%s.%s'\
 # PLot spectrum, powerSampledogram and spectral reconstruction
 if cfg.stat.norm:
     weights /= cfg0
-msize = np.zeros((weights.shape[0]))
-wr = np.abs(weights.real)
-msize = np.log10(wr)
-msize = (msize + 4) * 10
-# msize[weights.real > 0] = (msize[weights.real > 0] + 6) * 3
-msize[msize < 0] = 0.
+# msize = np.zeros((weights.shape[0]))
+# msize[weights.real > 0] = np.log10(weights[weights.real > 0].real)
+# msize[weights.real > 0] = (msize[weights.real > 0] + 8) * 10
+# # msize[weights.real > 0] = (msize[weights.real > 0] + 6) * 3
+# msize[msize < 0] = 0.
+msize = 12
 ergoPlot.plotEigPowerRec(angFreq, eigValGen, powerSample, powerRec,
-                         markersize=msize,
+#                         markersize=msize,
                          condition=condition,
                          xlabel=realLabel, ylabel=imagLabel,
                          zlabel=powerLabel,
