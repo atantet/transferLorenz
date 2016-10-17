@@ -162,8 +162,8 @@ int main(int argc, char * argv[])
 			<< std::endl;
 	      transferSpec->getSpectrumForward();
 	      std::cout << "Found "
-			<< transferSpec->EigProbForward.ConvergedEigenvalues()
-			<< "/" << nev << " eigenvalues." << std::endl;	      
+			<< transferSpec->getNev()
+			<< "/" << nev << " eigenvalues." << std::endl;
 	    }
 	  if (getBackwardEigenvectors)
 	    {
@@ -171,10 +171,12 @@ int main(int argc, char * argv[])
 			<< std::endl;
 	      transferSpec->getSpectrumBackward();
 	      std::cout << "Found "
-			<< transferSpec->EigProbBackward.ConvergedEigenvalues()
+			<< transferSpec->getNev()
 			<< "/" << nev << " eigenvalues." << std::endl;
 	    }
-	  if (makeBiorthonormal)
+	  if (getForwardEigenvectors
+	      && getBackwardEigenvectors
+	      && makeBiorthonormal)
 	    {
 	      std::cout << "Making set of forward and backward eigenvectors \
 biorthonormal..."
