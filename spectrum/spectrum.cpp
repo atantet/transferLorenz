@@ -158,23 +158,28 @@ int main(int argc, char * argv[])
 
 	  if (getForwardEigenvectors)
 	    {
-	      std::cout << "Solving eigen problem for forward transition matrix..." << std::endl;
+	      std::cout << "Solving eigen problem for forward transition matrix..."
+			<< std::endl;
 	      transferSpec->getSpectrumForward();
 	      std::cout << "Found "
-			<< transferSpec->EigProbForward.ConvergedEigenvalues()
-			<< "/" << nev << " eigenvalues." << std::endl;	      
+			<< transferSpec->getNev()
+			<< "/" << nev << " eigenvalues." << std::endl;
 	    }
 	  if (getBackwardEigenvectors)
 	    {
-	      std::cout << "Solving eigen problem for backward transition matrix..." << std::endl;
+	      std::cout << "Solving eigen problem for backward transition matrix..."
+			<< std::endl;
 	      transferSpec->getSpectrumBackward();
 	      std::cout << "Found "
-			<< transferSpec->EigProbBackward.ConvergedEigenvalues()
+			<< transferSpec->getNev()
 			<< "/" << nev << " eigenvalues." << std::endl;
 	    }
-	  if (makeBiorthonormal)
+	  if (getForwardEigenvectors
+	      && getBackwardEigenvectors
+	      && makeBiorthonormal)
 	    {
-	      std::cout << "Making set of forward and backward eigenvectors biorthonormal..."
+	      std::cout << "Making set of forward and backward eigenvectors \
+biorthonormal..."
 			<< std::endl;
 	      transferSpec->makeBiorthonormal();
 	    }

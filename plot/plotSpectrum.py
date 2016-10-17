@@ -56,7 +56,6 @@ for d in np.arange(dimObs):
     else:
         gridPostfix = "%s_n%dminmax" % (gridPostfix, cfg.grid.nx[d])
 gridPostfix = "%s%s%s" % (srcPostfix, obsName, gridPostfix)
-gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
 
 nLags = len(cfg.transfer.tauRng)
 ev_xlabel = r'$%s$' % compName1
@@ -70,10 +69,6 @@ xlabelCorr = r'$t$'
 
 xmineigVal = -cfg.stat.rateMax
 ymineigVal = -cfg.stat.angFreqMax
-plotBackward = False
-#plotBackward = True
-plotImag = False
-#plotImag = True
 xlimEig = [xmineigVal, -xmineigVal/100]
 ylimEig = [ymineigVal, -ymineigVal]
 zlimEig = [cfg.stat.powerMin, cfg.stat.powerMax]
@@ -87,7 +82,8 @@ zticks = np.logspace(np.log10(zlimEig[0]), np.log10(zlimEig[1]),
                      int(np.round(np.log10(zlimEig[1]/zlimEig[0])/2 + 1)))
 
 
-# # Read grid
+# Read grid
+gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
 coord = ergoPlot.readGrid(gridFile, dimObs)
 if dimObs == 1:
     X = coord[0]
@@ -100,16 +96,20 @@ elif dimObs == 3:
 
 # Define file names
 postfix = "%s_tau%03d" % (gridPostfix, tau * 1000)
-eigValForwardFile = '%s/eigval/eigvalForward_nev%d%s.txt' \
-                    % (cfg.general.specDir, cfg.spectrum.nev, postfix)
-eigVecForwardFile = '%s/eigvec/eigvecForward_nev%d%s.txt' \
-                    % (cfg.general.specDir, cfg.spectrum.nev, postfix)
-eigValBackwardFile = '%s/eigval/eigvalBackward_nev%d%s.txt' \
-                    % (cfg.general.specDir, cfg.spectrum.nev, postfix)
-eigVecBackwardFile = '%s/eigvec/eigvecBackward_nev%d%s.txt' \
-                    % (cfg.general.specDir, cfg.spectrum.nev, postfix)
-statDistFile = '%s/transfer/initDist/initDist%s.txt' \
-               % (cfg.general.resDir, gridPostfix)
+eigValForwardFile = '%s/eigval/eigvalForward_nev%d%s.%s' \
+                    % (cfg.general.specDir, cfg.spectrum.nev, postfix,
+                       cfg.simulation.file_format)
+eigVecForwardFile = '%s/eigvec/eigvecForward_nev%d%s.%s' \
+                    % (cfg.general.specDir, cfg.spectrum.nev, postfix,
+                    cfg.simulation.file_format)
+eigValBackwardFile = '%s/eigval/eigvalBackward_nev%d%s.%s' \
+                    % (cfg.general.specDir, cfg.spectrum.nev, postfix,
+                    cfg.simulation.file_format)
+eigVecBackwardFile = '%s/eigvec/eigvecBackward_nev%d%s.%s' \
+                    % (cfg.general.specDir, cfg.spectrum.nev, postfix,
+                    cfg.simulation.file_format)
+statDistFile = '%s/transfer/initDist/initDist%s.%s' \
+               % (cfg.general.resDir, gridPostfix, cfg.simulation.file_format)
 
 # Read transfer operator spectrum from file and create a bi-orthonormal basis
 # of eigenvectors and backward eigenvectors:
@@ -118,7 +118,8 @@ print 'Readig spectrum for tau = %.3f...' % tau
     = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
                             statDistFile,
                             eigVecForwardFile, eigVecBackwardFile,
-                            makeBiorthonormal=~cfg.spectrum.makeBiorthonormal)
+                            makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
+                            fileFormat=cfg.simulation.file_format)
 
 print 'Getting conditionning of eigenvectors...'
 eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward,
@@ -128,28 +129,28 @@ eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward,
 eigValGen = np.log(eigValForward) / tau
 
 # Plot eigenvectors of transfer operator
-alpha = 0.01
+alpha = 0.0
 os.system('mkdir %s/spectrum/eigvec 2> /dev/null' % cfg.general.plotDir)
 os.system('mkdir %s/spectrum/reconstruction 2> /dev/null' % cfg.general.plotDir)
 for ev in np.arange(cfg.spectrum.nEigVecPlot):
     print 'Plotting real part of eigenvector %d...' % (ev + 1,)
     if dimObs == 2:
-        ergoPlot.plot2D(X, Y, eigVecForward[:, ev].real,
+        ergoPlot.plot2D(X, Y, eigVecForward[ev].real * statDist,
                         ev_xlabel, ev_ylabel, alpha)
     elif dimObs == 3:
-        ergoPlot.plot3D(X, Y, Z, eigVecForward[:, ev].real,
+        ergoPlot.plot3D(X, Y, Z, eigVecForward[ev].real * statDist,
                         ev_xlabel, ev_ylabel, ev_zlabel, alpha)
     dstFile = '%s/spectrum/eigvec/eigvecForwardReal_ev%03d%s.%s' \
               % (cfg.general.plotDir, ev + 1, postfix, ergoPlot.figFormat)
     plt.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches, dpi=ergoPlot.dpi)
     
-    if plotImag & (eigValForward[ev].imag != 0):
+    if cfg.spectrum.plotImag & (eigValForward[ev].imag != 0):
         print 'Plotting imaginary  part of eigenvector %d...' % (ev + 1,)
         if dimObs == 2:
-            ergoPlot.plot2D(X, Y, eigVecForward[:, ev].imag,
+            ergoPlot.plot2D(X, Y, eigVecForward[ev].imag * statDist,
                             ev_xlabel, ev_ylabel, alpha)
         elif dimObs == 3:
-            ergoPlot.plot3D(X, Y, Z, eigVecForward[:, ev].imag,
+            ergoPlot.plot3D(X, Y, Z, eigVecForward[ev].imag * statDist,
                             ev_xlabel, ev_ylabel, ev_zlabel, alpha)
         dstFile = '%s/spectrum/eigvec/eigvecForwardImag_ev%03d%s.%s' \
                   % (cfg.general.plotDir, ev + 1, postfix, ergoPlot.figFormat)
@@ -157,27 +158,27 @@ for ev in np.arange(cfg.spectrum.nEigVecPlot):
                     dpi=ergoPlot.dpi)
     
     # Plot eigenvectors of backward operator
-    if plotBackward:
+    if cfg.spectrum.plotBackward:
         print 'Plotting real part of backward eigenvector %d...' % (ev + 1,)
         if dimObs == 2:
-            ergoPlot.plot2D(X, Y, eigVecBackward[:, ev].real,
+            ergoPlot.plot2D(X, Y, eigVecBackward[ev].real * statDist,
                             ev_xlabel, ev_ylabel, alpha)
         elif dimObs == 3:
-            ergoPlot.plot3D(X, Y, Z, eigVecBackward[:, ev].real,
+            ergoPlot.plot3D(X, Y, Z, eigVecBackward[ev].real * statDist,
                             ev_xlabel, ev_ylabel, ev_zlabel, alpha)
         dstFile = '%s/spectrum/eigvec/eigvecBackwardReal_ev%03d%s.%s' \
                   % (cfg.general.plotDir, ev + 1, postfix, ergoPlot.figFormat)
         plt.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches,
                     dpi=ergoPlot.dpi)
         
-        if plotImag & (eigValForward[ev].imag != 0):
+        if cfg.spectrum.plotImag & (eigValForward[ev].imag != 0):
             print 'Plotting imaginary  part of backward eigenvector %d...' \
                 % (ev + 1,)
             if dimObs == 2:
-                ergoPlot.plot2D(X, Y, eigVecBackward[:, ev].imag,
+                ergoPlot.plot2D(X, Y, eigVecBackward[ev].imag * statDist,
                                 ev_xlabel, ev_ylabel, alpha)
             elif dimObs == 3:
-                ergoPlot.plot3D(X, Y, Z, eigVecBackward[:, ev].imag,
+                ergoPlot.plot3D(X, Y, Z, eigVecBackward[ev].imag * statDist,
                                 ev_xlabel, ev_ylabel, ev_zlabel, alpha)
             dstFile = '%s/spectrum/eigvec/eigvecBackwardImag_ev%03d%s.%s' \
                       % (cfg.general.plotDir, ev + 1, postfix,
