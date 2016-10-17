@@ -53,7 +53,7 @@ int main(int argc, char * argv[])
   double tau;
   char forwardTransitionFileName[256], initDistFileName[256],
     backwardTransitionFileName[256], finalDistFileName[256],
-    mask[256], postfix[256];
+    maskFileName[256], postfix[256];
   transferOperator *transferOp;
   gsl_vector *initDist, *finalDist;
   gsl_vector_uint *mask;
@@ -74,50 +74,69 @@ int main(int argc, char * argv[])
       sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tau * 1000));
       sprintf(forwardTransitionFileName, \
 	      "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
-	      resDir, postfix, file_format);
+	      resDir, postfix, fileFormat);
       sprintf(backwardTransitionFileName, \
 	      "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
-	      resDir, postfix, file_format);
+	      resDir, postfix, fileFormat);
       sprintf(EigValForwardFileName,
 	      "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
-	      resDir, nev, postfix, file_format);
+	      resDir, nev, postfix, fileFormat);
       sprintf(EigValForwardFileName,
 	      "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
-	      resDir, nev, postfix, file_format);
+	      resDir, nev, postfix, fileFormat);
       sprintf(EigVecForwardFileName,
 	      "%s/spectrum/eigvec/eigvecForward_nev%d%s.%s",
-	      resDir, nev, postfix, file_format);
+	      resDir, nev, postfix, fileFormat);
       sprintf(EigValBackwardFileName,
 	      "%s/spectrum/eigval/eigvalBackward_nev%d%s.%s",
-	      resDir, nev, postfix, file_format);
+	      resDir, nev, postfix, fileFormat);
       sprintf(EigVecBackwardFileName,
 	      "%s/spectrum/eigvec/eigvecBackward_nev%d%s.%s",
-	      resDir, nev, postfix, file_format);
+	      resDir, nev, postfix, fileFormat);
 
       // Read transfer operator
       std::cout << "Reading stationary transfer operator..." << std::endl;
       try
 	{
+	  /** Construct transfer operator without allocating memory
+	      to the distributions (only to the mask) ! */
 	  transferOp = new transferOperator(N, stationary);
 	    
-	  // Only scan mask and initial distribution for the first lag
+	  // Scan forward transition matrix (this sets NFilled)
+	  std::cout << "Scanning forward transition matrix from "
+		    << forwardTransitionFileName << std::endl;
+	  transferOp->scanForwardTransition(forwardTransitionFileName,
+					    fileFormat);
+
+	  // Scan mask for the first lag
 	  if (lag == 0)
 	    {
 	      sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
-		      resDir, gridPostfix, file_format);
+		      resDir, gridPostfix, fileFormat);
 	      std::cout << "Scanning mask from "
 			<< maskFileName << std::endl;
-	      transferOp->scanMask(maskFileName, file_format);
-	      mask = gsl_vector_uint_alloc(transferOp->N);
-	      gsl_vector_memcpy(mask, transferOp->mask);
+	      transferOp->scanMask(maskFileName, fileFormat);
 
+	      // Save mask
+	      mask = gsl_vector_uint_alloc(transferOp->getN());
+	      gsl_vector_uint_memcpy(mask, transferOp->mask);
+	    }
+
+	  // Allocate memory to distributions
+	  transferOp->allocateDist();
+
+	  // Scan initial distribution for the first lag
+	  if (lag == 0)
+	    {
 	      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
-		      resDir, gridPostfix, file_format);
+		      resDir, gridPostfix, fileFormat);
 	      std::cout << "Scanning initial distribution from "
 			<< initDistFileName << std::endl;
 	      transferOp->scanInitDist(initDistFileName,
-				       file_format);
-	      initDist = gsl_vector_alloc(transferOp->NFilled);
+				       fileFormat);
+
+	      // Save initial distribution
+	      initDist = gsl_vector_alloc(transferOp->getNFilled());
 	      gsl_vector_memcpy(initDist, transferOp->initDist);
 	    }
 	  else
@@ -125,34 +144,32 @@ int main(int argc, char * argv[])
 	      transferOp->setMask(mask);
 	      transferOp->setInitDist(initDist);
 	    }
-	  // Scan forward transition matrix
-	  std::cout << "Scanning forward transition matrix from "
-		    << forwardTransitionFileName << std::endl;
-	  transferOp->scanForwardTransition(forwardTransitionFileName,
-					    file_format);
-
+	  
 	  if (!stationary)
 	    {
+	      // Scan backward transition matrix
+	      std::cout << "Scanning backward transition matrix from "
+			<< backwardTransitionFileName << std::endl;
+	      transferOp->scanBackwardTransition(backwardTransitionFileName,
+						 fileFormat);
+
 	      // Only scan final distribution for the first lag
 	      if (lag == 0)
 		{
 		  sprintf(finalDistFileName,
 			  "%s/transfer/finalDist/finalDist%s.%s",
-			  resDir, gridPostfix, file_format);
+			  resDir, gridPostfix, fileFormat);
 		  std::cout << "Scanning final distribution from "
 			    << finalDistFileName << std::endl;
 		  transferOp->scanFinalDist(finalDistFileName,
-					    file_format);
-		  finalDist = gsl_vector_alloc(transferOp->NFilled);
+					    fileFormat);
+
+		  // Save final distribution
+		  finalDist = gsl_vector_alloc(transferOp->getNFilled());
 		  gsl_vector_memcpy(finalDist, transferOp->finalDist);
 		}
 	      else
 		transferOp->setFinalDist(finalDist);
-	      // Scan backward transition matrix
-	      std::cout << "Scanning backward transition matrix from "
-			<< backwardTransitionFileName << std::endl;
-	      transferOp->scanBackwardTransition(backwardTransitionFileName,
-						 file_format);
 	    }
 	}
       catch (std::exception &ex)
@@ -212,7 +229,7 @@ biorthonormal..."
 			<< std::endl;
 	      transferSpec->writeSpectrumForward(EigValForwardFileName,
 						 EigVecForwardFileName,
-						 file_format);
+						 fileFormat);
 	    }
 	  if (getBackwardEigenvectors)
 	    {
@@ -220,7 +237,7 @@ biorthonormal..."
 			<< std::endl;
 	      transferSpec->writeSpectrumBackward(EigValBackwardFileName,
 						  EigVecBackwardFileName,
-						  file_format);
+						  fileFormat);
 	    }
 	}
       catch (std::exception &ex)

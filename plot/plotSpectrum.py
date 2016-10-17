@@ -98,24 +98,24 @@ elif dimObs == 3:
 postfix = "%s_tau%03d" % (gridPostfix, tau * 1000)
 eigValForwardFile = '%s/eigval/eigvalForward_nev%d%s.%s' \
                     % (cfg.general.specDir, cfg.spectrum.nev, postfix,
-                       cfg.simulation.file_format)
+                       cfg.general.fileFormat)
 eigVecForwardFile = '%s/eigvec/eigvecForward_nev%d%s.%s' \
                     % (cfg.general.specDir, cfg.spectrum.nev, postfix,
-                    cfg.simulation.file_format)
+                    cfg.general.fileFormat)
 eigValBackwardFile = '%s/eigval/eigvalBackward_nev%d%s.%s' \
                     % (cfg.general.specDir, cfg.spectrum.nev, postfix,
-                    cfg.simulation.file_format)
+                    cfg.general.fileFormat)
 eigVecBackwardFile = '%s/eigvec/eigvecBackward_nev%d%s.%s' \
                     % (cfg.general.specDir, cfg.spectrum.nev, postfix,
-                    cfg.simulation.file_format)
+                    cfg.general.fileFormat)
 statDistFile = '%s/transfer/initDist/initDist%s.%s' \
-               % (cfg.general.resDir, gridPostfix, cfg.simulation.file_format)
-maskFile = '%s/transfer/maks/mask%s.%s' \
-           % (cfg.general.resDir, gridPostfix, cfg.simulation.file_format)
+               % (cfg.general.resDir, gridPostfix, cfg.general.fileFormat)
+maskFile = '%s/transfer/mask/mask%s.%s' \
+           % (cfg.general.resDir, gridPostfix, cfg.general.fileFormat)
 
 # Read stationary distribution
 if statDistFile is not None:
-    if fileFormat == 'bin':
+    if cfg.general.fileFormat == 'bin':
         statDist = np.fromfile(statDistFile, float)
     else:
         statDist = np.loadtxt(statDistFile, float)
@@ -124,13 +124,13 @@ else:
 
 # Read mask
 if maskFile is not None:
-    if fileFormat == 'bin':
-        mask = np.fromfile(maskFile, float)
+    if cfg.general.fileFormat == 'bin':
+        mask = np.fromfile(maskFile, np.int32)
     else:
-        mask = np.loadtxt(maskFile, float)
+        mask = np.loadtxt(maskFile, np.int32)
 else:
     mask = np.arange(N)
-NFilled = mask.max() + 1
+NFilled = np.max(mask[mask < N]) + 1
 
 # Read transfer operator spectrum from file and create a bi-orthonormal basis
 # of eigenvectors and backward eigenvectors:
@@ -139,7 +139,7 @@ print 'Readig spectrum for tau = %.3f...' % tau
     = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
                             eigVecForwardFile, eigVecBackwardFile,
                             makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
-                            fileFormat=cfg.simulation.file_format,
+                            fileFormat=cfg.general.fileFormat,
                             statDist=statDist)
 
 print 'Getting conditionning of eigenvectors...'
