@@ -21,11 +21,8 @@ all:$(EXE).out
 	mkdir -p ../results/transfer/initDist
 	mkdir -p ../results/transfer/finalDist
 	mkdir -p ../results/transfer/gridMem
-<<<<<<< HEAD
-=======
 	mkdir -p ../results/transfer/mask
 	mkdir -p ../results/grid/
->>>>>>> 551327bf5efd9add7cd6e48d8d42065a2ff0aa22
 
 $(EXE).o:$(EXE).cpp
 	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
