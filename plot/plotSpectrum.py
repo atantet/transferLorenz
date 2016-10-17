@@ -110,16 +110,37 @@ eigVecBackwardFile = '%s/eigvec/eigvecBackward_nev%d%s.%s' \
                     cfg.simulation.file_format)
 statDistFile = '%s/transfer/initDist/initDist%s.%s' \
                % (cfg.general.resDir, gridPostfix, cfg.simulation.file_format)
+maskFile = '%s/transfer/maks/mask%s.%s' \
+           % (cfg.general.resDir, gridPostfix, cfg.simulation.file_format)
+
+# Read stationary distribution
+if statDistFile is not None:
+    if fileFormat == 'bin':
+        statDist = np.fromfile(statDistFile, float)
+    else:
+        statDist = np.loadtxt(statDistFile, float)
+else:
+    statDist = None
+
+# Read mask
+if maskFile is not None:
+    if fileFormat == 'bin':
+        mask = np.fromfile(maskFile, float)
+    else:
+        mask = np.loadtxt(maskFile, float)
+else:
+    mask = np.arange(N)
+NFilled = mask.max() + 1
 
 # Read transfer operator spectrum from file and create a bi-orthonormal basis
 # of eigenvectors and backward eigenvectors:
 print 'Readig spectrum for tau = %.3f...' % tau
-(eigValForward, eigValBackward, statDist, eigVecForward, eigVecBackward) \
+(eigValForward, eigValBackward, eigVecForward, eigVecBackward) \
     = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
-                            statDistFile,
                             eigVecForwardFile, eigVecBackwardFile,
                             makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
-                            fileFormat=cfg.simulation.file_format)
+                            fileFormat=cfg.simulation.file_format,
+                            statDist=statDist)
 
 print 'Getting conditionning of eigenvectors...'
 eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward,
@@ -135,10 +156,10 @@ os.system('mkdir %s/spectrum/reconstruction 2> /dev/null' % cfg.general.plotDir)
 for ev in np.arange(cfg.spectrum.nEigVecPlot):
     print 'Plotting real part of eigenvector %d...' % (ev + 1,)
     if dimObs == 2:
-        ergoPlot.plot2D(X, Y, eigVecForward[ev].real * statDist,
+        ergoPlot.plot2D(X, Y, eigVecForward[ev].real,
                         ev_xlabel, ev_ylabel, alpha)
     elif dimObs == 3:
-        ergoPlot.plot3D(X, Y, Z, eigVecForward[ev].real * statDist,
+        ergoPlot.plot3D(X, Y, Z, eigVecForward[ev].real, mask,
                         ev_xlabel, ev_ylabel, ev_zlabel, alpha)
     dstFile = '%s/spectrum/eigvec/eigvecForwardReal_ev%03d%s.%s' \
               % (cfg.general.plotDir, ev + 1, postfix, ergoPlot.figFormat)
@@ -147,10 +168,10 @@ for ev in np.arange(cfg.spectrum.nEigVecPlot):
     if cfg.spectrum.plotImag & (eigValForward[ev].imag != 0):
         print 'Plotting imaginary  part of eigenvector %d...' % (ev + 1,)
         if dimObs == 2:
-            ergoPlot.plot2D(X, Y, eigVecForward[ev].imag * statDist,
+            ergoPlot.plot2D(X, Y, eigVecForward[ev].imag,
                             ev_xlabel, ev_ylabel, alpha)
         elif dimObs == 3:
-            ergoPlot.plot3D(X, Y, Z, eigVecForward[ev].imag * statDist,
+            ergoPlot.plot3D(X, Y, Z, eigVecForward[ev].imag, mask,
                             ev_xlabel, ev_ylabel, ev_zlabel, alpha)
         dstFile = '%s/spectrum/eigvec/eigvecForwardImag_ev%03d%s.%s' \
                   % (cfg.general.plotDir, ev + 1, postfix, ergoPlot.figFormat)
@@ -161,10 +182,10 @@ for ev in np.arange(cfg.spectrum.nEigVecPlot):
     if cfg.spectrum.plotBackward:
         print 'Plotting real part of backward eigenvector %d...' % (ev + 1,)
         if dimObs == 2:
-            ergoPlot.plot2D(X, Y, eigVecBackward[ev].real * statDist,
+            ergoPlot.plot2D(X, Y, eigVecBackward[ev].real,
                             ev_xlabel, ev_ylabel, alpha)
         elif dimObs == 3:
-            ergoPlot.plot3D(X, Y, Z, eigVecBackward[ev].real * statDist,
+            ergoPlot.plot3D(X, Y, Z, eigVecBackward[ev].real, mask,
                             ev_xlabel, ev_ylabel, ev_zlabel, alpha)
         dstFile = '%s/spectrum/eigvec/eigvecBackwardReal_ev%03d%s.%s' \
                   % (cfg.general.plotDir, ev + 1, postfix, ergoPlot.figFormat)
@@ -175,10 +196,10 @@ for ev in np.arange(cfg.spectrum.nEigVecPlot):
             print 'Plotting imaginary  part of backward eigenvector %d...' \
                 % (ev + 1,)
             if dimObs == 2:
-                ergoPlot.plot2D(X, Y, eigVecBackward[ev].imag * statDist,
+                ergoPlot.plot2D(X, Y, eigVecBackward[ev].imag,
                                 ev_xlabel, ev_ylabel, alpha)
             elif dimObs == 3:
-                ergoPlot.plot3D(X, Y, Z, eigVecBackward[ev].imag * statDist,
+                ergoPlot.plot3D(X, Y, Z, eigVecBackward[ev].imag, mask,
                                 ev_xlabel, ev_ylabel, ev_zlabel, alpha)
             dstFile = '%s/spectrum/eigvec/eigvecBackwardImag_ev%03d%s.%s' \
                       % (cfg.general.plotDir, ev + 1, postfix,
@@ -187,11 +208,11 @@ for ev in np.arange(cfg.spectrum.nEigVecPlot):
                         dpi=ergoPlot.dpi)
 
             
-# Define observables
+# Define observables on the reduced grid
 corrName = 'C%d%d' % (cfg.stat.idxf, cfg.stat.idxg)
 powerName = 'S%d%d' % (cfg.stat.idxf, cfg.stat.idxg)
-f = coord[cfg.stat.idxf]
-g = coord[cfg.stat.idxg]
+f = coord[cfg.stat.idxf][mask < N]
+g = coord[cfg.stat.idxg][mask < N]
 # corrLabel = r'$C_{x_%d, x_%d}(t)$' % (cfg.stat.idxf + 1,
 #                                       cfg.stat.idxg + 1)
 # powerLabel = r'$S_{x_%d, x_%d}(\omega)$' % (cfg.stat.idxf + 1,
@@ -229,12 +250,12 @@ powerSample /= 2 * np.pi
 # Get normalized weights
 weights = ergoPlot.getSpectralWeights(f, g, eigVecForward, eigVecBackward,
                                       statDist)
-prob = np.nonzero(np.abs(eigValBackward \
-                         - np.conjugate(eigValForward)) > 0.001)[0]
-for k in np.arange(prob.shape[0]):
-    idx = np.argmin(np.abs(eigValGen[prob[k]] - np.conjugate(eigValGen)))
-    weights[prob[k]] = np.conjugate(weights[idx])
-    eigenCondition[prob[k]] = eigenCondition[idx]
+# prob = np.nonzero(np.abs(eigValBackward \
+#                          - np.conjugate(eigValForward)) > 0.001)[0]
+# for k in np.arange(prob.shape[0]):
+#     idx = np.argmin(np.abs(eigValGen[prob[k]] - np.conjugate(eigValGen)))
+#     weights[prob[k]] = np.conjugate(weights[idx])
+#     eigenCondition[prob[k]] = eigenCondition[idx]
 
 weights[eigenCondition > cfg.stat.maxCondition] = 0.
 condition = np.empty(eigenCondition.shape, dtype='S1')

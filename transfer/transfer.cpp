@@ -84,7 +84,7 @@ int main(int argc, char * argv[])
   // Transfer operator declarations
   char forwardTransitionFileName[256], initDistFileName[256],
     backwardTransitionFileName[256], finalDistFileName[256],
-    postfix[256];
+    postfix[256], maskFileName[256];
 
   size_t tauNum;
   double tau;
@@ -217,9 +217,14 @@ of membership vecotrs..." << std::endl;
       transferOp->printForwardTransition(forwardTransitionFileName,
 					 file_format, "%.12lf");
 
-      // Write initial distribution
+      // Write mask and initial distribution
       if (lag == 0)
 	{
+	  sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
+		  resDir, gridPostfix, file_format);
+	  transferOp->printMask(maskFileName,
+				file_format, "%.12lf");
+
 	  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
 		  resDir, gridPostfix, file_format);
 	  transferOp->printInitDist(initDistFileName,
