@@ -68,6 +68,7 @@ int main(int argc, char * argv[])
     }
 
   // Observable declarations
+  char srcFileName[256];
   FILE *srcStream;
   gsl_matrix *traj;
   gsl_matrix *states;
@@ -92,8 +93,9 @@ int main(int argc, char * argv[])
 
 
   // Get membership vector
+  sprintf(srcFileName, "%s/simulation/sim%s.%s", resDir, srcPostfix, fileFormat);
   sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
-	  resDir, gridPostfix, file_format);
+	  resDir, gridPostfix, fileFormat);
   if (! readGridMem)
     {
       // Open time series file
@@ -108,7 +110,7 @@ int main(int argc, char * argv[])
       // Read one-dimensional time series
       std::cout << "Reading trajectory in " << srcFileName << std::endl;
       traj = gsl_matrix_alloc(nt0, dim);
-      if (strcmp(file_format, "bin") == 0)
+      if (strcmp(fileFormat, "bin") == 0)
 	gsl_matrix_fread(srcStream, traj);
       else
 	gsl_matrix_fscanf(srcStream, traj);
@@ -149,7 +151,7 @@ int main(int argc, char * argv[])
       gridMemVector = getGridMemVector(states, grid);
 
       // Write grid membership
-      if (strcmp(file_format, "bin") == 0)
+      if (strcmp(fileFormat, "bin") == 0)
 	gsl_vector_uint_fwrite(gridMemStream, gridMemVector);
       else
 	gsl_vector_uint_fprintf(gridMemStream, gridMemVector, "%d");
@@ -174,7 +176,7 @@ int main(int argc, char * argv[])
       
       // Read grid membership
       gridMemVector = gsl_vector_uint_alloc(nt);
-      if (strcmp(file_format, "bin") == 0)
+      if (strcmp(fileFormat, "bin") == 0)
 	gsl_vector_uint_fread(gridMemStream, gridMemVector);
       else
 	gsl_vector_uint_fscanf(gridMemStream, gridMemVector);
@@ -213,22 +215,22 @@ of membership vecotrs..." << std::endl;
 		<< std::endl;
       sprintf(forwardTransitionFileName,
 	      "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
-	      resDir, postfix, file_format);
+	      resDir, postfix, fileFormat);
       transferOp->printForwardTransition(forwardTransitionFileName,
-					 file_format, "%.12lf");
+					 fileFormat, "%.12lf");
 
       // Write mask and initial distribution
       if (lag == 0)
 	{
 	  sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
-		  resDir, gridPostfix, file_format);
+		  resDir, gridPostfix, fileFormat);
 	  transferOp->printMask(maskFileName,
-				file_format, "%.12lf");
+				fileFormat, "%.12lf");
 
 	  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
-		  resDir, gridPostfix, file_format);
+		  resDir, gridPostfix, fileFormat);
 	  transferOp->printInitDist(initDistFileName,
-				    file_format, "%.12lf");
+				    fileFormat, "%.12lf");
 	}
       
       // Write backward transition matrix
@@ -238,18 +240,18 @@ of membership vecotrs..." << std::endl;
 and final distribution..." << std::endl;
 	  sprintf(backwardTransitionFileName,
 		  "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
-		  resDir, postfix, file_format);
+		  resDir, postfix, fileFormat);
 	  transferOp->printBackwardTransition(backwardTransitionFileName,
-					      file_format, "%.12lf");
+					      fileFormat, "%.12lf");
 
 	  // Write final distribution 
 	  if (lag == 0)
 	    {
 	      sprintf(finalDistFileName,
 		      "%s/transfer/finalDist/finalDist%s.%s",
-		      resDir, postfix, file_format);
+		      resDir, postfix, fileFormat);
 	      transferOp->printFinalDist(finalDistFileName,
-					 file_format, "%.12lf");
+					 fileFormat, "%.12lf");
 	    }
 	}
 	
