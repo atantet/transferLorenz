@@ -52,11 +52,11 @@ int main(int argc, char * argv[])
   // Transfer
   double tau;
   char forwardTransitionFileName[256], initDistFileName[256],
-    backwardTransitionFileName[256], finalDistFileName[256], postfix[256];
+    backwardTransitionFileName[256], finalDistFileName[256],
+    mask[256], postfix[256];
   transferOperator *transferOp;
-  gsl_vector *initDist = gsl_vector_alloc(N);
-  gsl_vector *finalDist = gsl_vector_alloc(N);
-
+  gsl_vector *initDist, *finalDist;
+  gsl_vector_uint *mask;
 
   // Eigen problem
   char EigValForwardFileName[256], EigVecForwardFileName[256],
@@ -100,19 +100,31 @@ int main(int argc, char * argv[])
 	{
 	  transferOp = new transferOperator(N, stationary);
 	    
-	  // Only scan initial distribution for the first lag
+	  // Only scan mask and initial distribution for the first lag
 	  if (lag == 0)
 	    {
+	      sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
+		      resDir, gridPostfix, file_format);
+	      std::cout << "Scanning mask from "
+			<< maskFileName << std::endl;
+	      transferOp->scanMask(maskFileName, file_format);
+	      mask = gsl_vector_uint_alloc(transferOp->N);
+	      gsl_vector_memcpy(mask, transferOp->mask);
+
 	      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
 		      resDir, gridPostfix, file_format);
 	      std::cout << "Scanning initial distribution from "
 			<< initDistFileName << std::endl;
 	      transferOp->scanInitDist(initDistFileName,
 				       file_format);
+	      initDist = gsl_vector_alloc(transferOp->NFilled);
 	      gsl_vector_memcpy(initDist, transferOp->initDist);
 	    }
 	  else
-	    transferOp->setInitDist(initDist);
+	    {
+	      transferOp->setMask(mask);
+	      transferOp->setInitDist(initDist);
+	    }
 	  // Scan forward transition matrix
 	  std::cout << "Scanning forward transition matrix from "
 		    << forwardTransitionFileName << std::endl;
@@ -131,6 +143,7 @@ int main(int argc, char * argv[])
 			    << finalDistFileName << std::endl;
 		  transferOp->scanFinalDist(finalDistFileName,
 					    file_format);
+		  finalDist = gsl_vector_alloc(transferOp->NFilled);
 		  gsl_vector_memcpy(finalDist, transferOp->finalDist);
 		}
 	      else
