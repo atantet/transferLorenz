@@ -26,8 +26,9 @@ gsl_vector_uint *embedding;     //!< Embedding lags for each component
 bool readGridMem;               //!< Whether to read the grid membership vector
 size_t N;                       //!< Dimension of the grid
 gsl_vector_uint *nx;            //!< Number of grid boxes per dimension
-gsl_vector *nSTDLow;            //!< Number of standard deviations below mean to span by the grid 
-gsl_vector *nSTDHigh;           //!< Number of standard deviations above mean to span by the grid 
+gsl_vector *gridLimitsLow;      //!< Grid limits
+gsl_vector *gridLimitsUp;       //!< Grid limits
+char gridLimitsType[32];        //!< Grid limits type
 size_t nLags;                   //!< Number of transition lags for which to calculate the spectrum
 gsl_vector *tauRng;             //!< Lags for which to calculate the spectrum
 int nev;                        //!< Number of eigenvectors to calculate
@@ -41,6 +42,8 @@ bool stationary;                //!< Whether the problem is stationary or not
 bool getForwardEigenvectors;    //!< Whether to get forward eigenvectors
 bool getBackwardEigenvectors;   //!< Whether to get backward eigenvectors
 bool makeBiorthonormal;         //!< Whether to make eigenvectors biorthonormal
+gsl_vector_uint *seedRng;       //!< Seeds used to initialize the simulations
+size_t nSeeds;                  //!< Number of seeds
 
 /** \file readConfig.cpp
  *  \brief Definitions for readConfig.hpp
@@ -65,7 +68,8 @@ readConfig(const char *cfgFileName)
     std::cout << std::endl << "---general---" << std::endl;
     strcpy(resDir, (const char *) cfg.lookup("general.resDir"));
     std::cout << "Results directory: " << resDir << std::endl;
-        
+
+    
     /** Get model settings */
     std::cout << std::endl << "---model---" << std::endl;
 
@@ -102,6 +106,11 @@ readConfig(const char *cfgFileName)
 	std::cout << "]" << std::endl;
       }
 
+    // Output format
+    strcpy(fileFormat, (const char *) cfg.lookup("general.fileFormat"));
+    std::cout << "Output file format: " << fileFormat << std::endl;
+
+    
     /** Get simulation settings */
     std::cout << "\n" << "---simulation---" << std::endl;
 
@@ -135,9 +144,16 @@ readConfig(const char *cfgFileName)
     printStep = cfg.lookup("simulation.printStep");
     std::cout << "printStep = " << printStep << std::endl;
 
-    // Output format
-    strcpy(fileFormat, (const char *) cfg.lookup("general.fileFormat"));
-    std::cout << "Output file format: " << fileFormat << std::endl;
+    // Seeds
+    const Setting &seedRngSetting = cfg.lookup("simulation.seedRng");
+    nSeeds = seedRngSetting.getLength();
+    seedRng = gsl_vector_uint_alloc(nSeeds);
+    std::cout << "seedRng = {";
+    for (size_t seed = 0; seed < nSeeds; seed++) {
+      gsl_vector_uint_set(seedRng, seed, seedRngSetting[seed]);
+      std::cout << gsl_vector_uint_get(seedRng, seed) << ", ";
+    }
+    std::cout << "}" << std::endl;
 
     
     // Get observable settings
@@ -186,27 +202,34 @@ readConfig(const char *cfgFileName)
 	std::cout << "dim " << d+1 << ": "
 		  << gsl_vector_uint_get(nx, d) << std::endl;
     }
-    if (cfg.exists("grid.nSTDLow") & cfg.exists("grid.nSTDLow"))
+    
+    // Grid limits type
+    strcpy(gridLimitsType, (const char *) cfg.lookup("grid.gridLimitsType"));
+    std::cout << "Grid limits type: " << gridLimitsType << std::endl;
+
+    // Grid limits
+    if (cfg.exists("grid.gridLimits"))
       {
-	const Setting &nSTDLowSetting = cfg.lookup("grid.nSTDLow");
-	const Setting &nSTDHighSetting = cfg.lookup("grid.nSTDHigh");
-	nSTDLow = gsl_vector_alloc(dimObs);
-	nSTDHigh = gsl_vector_alloc(dimObs);
-	std::cout << "Grid limits (nSTDLow, nSTDHigh):" << std::endl;
+	const Setting &gridLimitsLowSetting = cfg.lookup("grid.gridLimitsLow");
+	const Setting &gridLimitsUpSetting = cfg.lookup("grid.gridLimitsUp");
+	gridLimitsLow = gsl_vector_alloc(dimObs);
+	gridLimitsUp = gsl_vector_alloc(dimObs);
+	std::cout << "Grid limits (low, high):" << std::endl;
 	for (size_t d = 0; d < (size_t) (dimObs); d++)
 	  {
-	    gsl_vector_set(nSTDLow, d, nSTDLowSetting[d]);
-	    gsl_vector_set(nSTDHigh, d, nSTDHighSetting[d]);
+	    gsl_vector_set(gridLimitsLow, d, gridLimitsLowSetting[d]);
+	    gsl_vector_set(gridLimitsUp, d, gridLimitsUpSetting[d]);
 	    std::cout << "dim " << d+1 << ": ("
-		      << gsl_vector_get(nSTDLow, d) << ", "
-		      << gsl_vector_get(nSTDHigh, d) << ")" << std::endl;
+		      << gsl_vector_get(gridLimitsLow, d) << ", "
+		      << gsl_vector_get(gridLimitsUp, d) << ")" << std::endl;
 	  }
       }
     else
       {
-	nSTDLow = NULL;
-	nSTDHigh = NULL;
+	gridLimitsLow = NULL;
+	gridLimitsUp = NULL;
       }
+    
     if (cfg.exists("grid.readGridMem"))
       readGridMem = cfg.lookup("grid.readGridMem");
     else
@@ -294,12 +317,12 @@ readConfig(const char *cfgFileName)
     sprintf(gridPostfix, "");
     for (size_t d = 0; d < (size_t) dimObs; d++) {
       strcpy(cpyBuffer, gridPostfix);
-      if (nSTDLow && nSTDHigh)
+      if (gridLimitsLow && gridLimitsUp)
 	{
 	  sprintf(gridPostfix, "%s_n%dl%dh%d", cpyBuffer,
 		  gsl_vector_uint_get(nx, d),
-		  (int) gsl_vector_get(nSTDLow, d),
-		  (int) gsl_vector_get(nSTDHigh, d));
+		  (int) gsl_vector_get(gridLimitsLow, d),
+		  (int) gsl_vector_get(gridLimitsUp, d));
 	}
       else
 	{
@@ -343,11 +366,15 @@ void
 freeConfig()
 {
   gsl_vector_free(tauRng);
-  gsl_vector_free(nSTDHigh);
-  gsl_vector_free(nSTDLow);
+  if (gridLimitsLow)
+    gsl_vector_free(gridLimitsLow);
+  if (gridLimitsUp)
+    gsl_vector_free(gridLimitsUp);
   gsl_vector_uint_free(nx);
   gsl_vector_uint_free(embedding);
   gsl_vector_uint_free(components);
+  gsl_vector_uint_free(seedRng);
+  gsl_vector_free(initState);
 
   return;
 }

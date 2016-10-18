@@ -252,7 +252,7 @@ biorthonormal..."
       delete transferOp;
   }
 
-  // Free
+  // Free                                                                                                                                                                                                                                  
   freeConfig();
   if (initDist)
     gsl_vector_free(initDist);
