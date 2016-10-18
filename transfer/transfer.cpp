@@ -71,7 +71,9 @@ int main(int argc, char * argv[])
   char srcFileName[256];
   FILE *srcStream;
   gsl_matrix *traj;
-  gsl_matrix *states;
+  size_t seed;
+  double xmin, xmax;
+  std::vector<gsl_matrix *> statesSeeds(nSeeds);
 
   // Grid declarations
   Grid *grid;
@@ -79,8 +81,9 @@ int main(int argc, char * argv[])
   // Grid membership declarations
   char gridMemFileName[256];
   FILE *gridMemStream;
-  gsl_vector_uint *gridMemVector;
   gsl_matrix_uint *gridMemMatrix;
+  std::vector<gsl_vector_uint *> gridMemSeeds(nSeeds);
+  bool getGridLimits = false;
     
   // Transfer operator declarations
   char forwardTransitionFileName[256], initDistFileName[256],
@@ -91,101 +94,156 @@ int main(int argc, char * argv[])
   double tau;
   transferOperator *transferOp;
 
-
-  // Get membership vector
-  sprintf(srcFileName, "%s/simulation/sim%s.%s", resDir, srcPostfix, fileFormat);
-  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
-	  resDir, gridPostfix, fileFormat);
+  
+  // Get grid membership matrix
   if (! readGridMem)
     {
-      // Open time series file
-      if ((srcStream = fopen(srcFileName, "r")) == NULL)
-	{
-	  fprintf(stderr, "Can't open source file %s for reading:",
-		  srcFileName);
-	  perror("");
-	  return(EXIT_FAILURE);
-	}
-
-      // Read one-dimensional time series
-      std::cout << "Reading trajectory in " << srcFileName << std::endl;
+      // Allocate trajectory and grid limits
       traj = gsl_matrix_alloc(nt0, dim);
-      if (strcmp(fileFormat, "bin") == 0)
-	gsl_matrix_fread(srcStream, traj);
-      else
-	gsl_matrix_fscanf(srcStream, traj);
-
-      // Close 
-      fclose(srcStream);
-
-
-      // Define observable
-      states = gsl_matrix_alloc(nt, (size_t) dimObs);
-      for (size_t d = 0; d < (size_t) dimObs; d++)
+      if (!(gridLimitsLow && gridLimitsUp))
 	{
-	  gsl_vector_const_view view 
-	    = gsl_matrix_const_subcolumn(traj,
-					 gsl_vector_uint_get(components, d),
-					 embedMax
-					 - gsl_vector_uint_get(embedding, d),
-					 nt);
-	  gsl_matrix_set_col(states, d, &view.vector);
+	  getGridLimits = true;
+	  gridLimitsLow = gsl_vector_alloc(dimObs);
+	  gridLimitsUp = gsl_vector_alloc(dimObs);
+	  gsl_vector_set_all(gridLimitsLow, 1.e30);
+	  gsl_vector_set_all(gridLimitsUp, -1.e30);
+	}
+      
+      // Iterate one simulation per seed
+      for (size_t s = 0; s < nSeeds; s++)
+	{
+	  // Get seed and set random number generator
+	  seed = gsl_vector_uint_get(seedRng, s);
+	  
+	  // Get membership vector
+	  sprintf(srcFileName, "%s/simulation/sim%s_seed%u.%s",
+		  resDir, srcPostfix, seed, fileFormat);
+	  
+	  // Open time series file
+	  if ((srcStream = fopen(srcFileName, "r")) == NULL)
+	    {
+	      fprintf(stderr, "Can't open source file %s for reading:",
+		      srcFileName);
+	      perror("");
+	      return(EXIT_FAILURE);
+	    }
+
+	  // Read one-dimensional time series
+	  std::cout << "Reading trajectory in " << srcFileName << std::endl;
+	  if (strcmp(fileFormat, "bin") == 0)
+	    gsl_matrix_fread(srcStream, traj);
+	  else
+	    gsl_matrix_fscanf(srcStream, traj);
+
+	  // Define observable
+	  statesSeeds[s] = gsl_matrix_alloc(nt, (size_t) dimObs);
+	  for (size_t d = 0; d < (size_t) dimObs; d++)
+	    {
+	      gsl_vector_const_view view 
+		= gsl_matrix_const_subcolumn(traj,
+					     gsl_vector_uint_get(components, d),
+					     embedMax
+					     - gsl_vector_uint_get(embedding, d),
+					     nt);
+	      gsl_matrix_set_col(statesSeeds[s], d, &view.vector);
+
+	      // Save min max values of observable to define fix limits grid
+	      if (getGridLimits)
+		{
+		  gsl_vector_minmax(&view.vector, &xmin, &xmax);
+		  if (xmin < gsl_vector_get(gridLimitsLow, d))
+		    gsl_vector_set(gridLimitsLow, d, xmin - 1.e-12);
+		  if (xmax > gsl_vector_get(gridLimitsUp, d))
+		    gsl_vector_set(gridLimitsUp, d, xmax + 1.e-12);
+		}
+	    }
+	  
+	  // Close trajectory file
+	  fclose(srcStream);
 	}
 
+      // Free
+      gsl_matrix_free(traj);
 
+      
       // Define grid
-      grid = new RegularGrid(nx, nSTDLow, nSTDHigh, states);
+      grid = new RegularGrid(nx, gridLimitsLow, gridLimitsUp);
     
       // Print grid
       grid->printGrid(gridFileName, "%.12lf", true);
     
-      // Open grid membership vector stream
-      if ((gridMemStream = fopen(gridMemFileName, "w")) == NULL){
-	fprintf(stderr, "Can't open %s for writing:", gridMemFileName);
-	perror("");
-	return(EXIT_FAILURE);
-      }
-    
-      // Get grid membership vector
-      std::cout << "Getting grid membership vector" << std::endl;
-      gridMemVector = getGridMemVector(states, grid);
 
-      // Write grid membership
-      if (strcmp(fileFormat, "bin") == 0)
-	gsl_vector_uint_fwrite(gridMemStream, gridMemVector);
-      else
-	gsl_vector_uint_fprintf(gridMemStream, gridMemVector, "%d");
+      // Get grid membership for each seed
+      for (size_t s = 0; s < nSeeds; s++)
+	{
+	  seed = gsl_vector_uint_get(seedRng, s);
+
+	  // Grid membership file name
+	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%u.%s",
+		  resDir, gridPostfix, seed, fileFormat);
+  
+	  // Open grid membership vector stream
+	  if ((gridMemStream = fopen(gridMemFileName, "w")) == NULL)
+	    {
+	      fprintf(stderr, "Can't open %s for writing:", gridMemFileName);
+	      perror("");
+	      return(EXIT_FAILURE);
+	    }
     
-      // Close stream and free
-      fclose(gridMemStream);
-      gsl_matrix_free(traj);
-      gsl_matrix_free(states);
+	  // Get grid membership vector
+	  std::cout << "Getting grid membership vector for seed "
+		    << seed << std::endl;
+	  gridMemSeeds[s] = getGridMemVector(statesSeeds[s], grid);
+
+	  // Write grid membership
+	  if (strcmp(fileFormat, "bin") == 0)
+	    gsl_vector_uint_fwrite(gridMemStream, gridMemSeeds[s]);
+	  else
+	    gsl_vector_uint_fprintf(gridMemStream, gridMemSeeds[s], "%d");
+
+	  // Free states and close stream
+	  gsl_matrix_free(statesSeeds[s]);
+	  fclose(gridMemStream);
+	}
+
+      // Free
       delete grid;
     }
   else
     {
-      // Open grid membership stream for reading
-      std::cout << "Reading grid membership vector at "
-		<< gridMemFileName << std::endl;
-      if ((gridMemStream = fopen(gridMemFileName, "r")) == NULL)
+      // Read grid membership for each seed
+      for (size_t s = 0; s < nSeeds; s++)
 	{
-	  fprintf(stderr, "Can't open %s for writing:", gridMemFileName);
-	  perror("");
-	  return(EXIT_FAILURE);
-	}
-      
-      // Read grid membership
-      gridMemVector = gsl_vector_uint_alloc(nt);
-      if (strcmp(fileFormat, "bin") == 0)
-	gsl_vector_uint_fread(gridMemStream, gridMemVector);
-      else
-	gsl_vector_uint_fscanf(gridMemStream, gridMemVector);
+	  seed = gsl_vector_uint_get(seedRng, s);
 
-      // Close stream
-      fclose(gridMemStream);
+	  // Grid membership file name
+	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%u.%s",
+		  resDir, gridPostfix, seed, fileFormat);
+	  
+	  // Open grid membership stream for reading
+	  std::cout << "Reading grid membership vector for seed "
+		    << seed << " at " << gridMemFileName << std::endl;
+	  
+	  if ((gridMemStream = fopen(gridMemFileName, "r")) == NULL)
+	    {
+	      fprintf(stderr, "Can't open %s for writing:", gridMemFileName);
+	      perror("");
+	      return(EXIT_FAILURE);
+	    }
+      
+	  // Read grid membership
+	  gridMemSeeds[s] = gsl_vector_uint_alloc(nt);
+	  if (strcmp(fileFormat, "bin") == 0)
+	    gsl_vector_uint_fread(gridMemStream, gridMemSeeds[s]);
+	  else
+	    gsl_vector_uint_fscanf(gridMemStream, gridMemSeeds[s]);
+
+	  // Close stream
+	  fclose(gridMemStream);
+	}
     }
 
-
+  
 
   // Get transition matrices for different lags
   for (size_t lag = 0; lag < nLags; lag++)
@@ -201,7 +259,7 @@ int main(int argc, char * argv[])
       // Get full membership matrix
       std::cout << "Getting full membership matrix from the list \
 of membership vecotrs..." << std::endl;
-      gridMemMatrix = memVector2memMatrix(gridMemVector, tauNum);
+      gridMemMatrix = memVectorList2memMatrix(&gridMemSeeds, tauNum);
 
       
       // Get transition matrices as CSR
@@ -261,7 +319,8 @@ and final distribution..." << std::endl;
     }
 
   // Free
-  gsl_vector_uint_free(gridMemVector);
+  for (size_t s = 0; s < nSeeds; s++)
+    gsl_vector_uint_free(gridMemSeeds[s]);
   freeConfig();
 		
   return 0;

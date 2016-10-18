@@ -251,10 +251,12 @@ biorthonormal..."
       delete transferOp;
   }
 
-  // Free
+  // Free                                                                                                                                                                                                                                  
   freeConfig();
-  gsl_vector_free(initDist);
-  gsl_vector_free(finalDist);
+  if (initDist)
+    gsl_vector_free(initDist);
+  if (finalDist)
+    gsl_vector_free(finalDist);
   
   return 0;
 }

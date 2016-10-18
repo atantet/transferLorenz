@@ -42,8 +42,9 @@ extern gsl_vector_uint *embedding;     //!< Embedding lags for each component
 extern bool readGridMem;               //!< Whether to read the grid membership vector
 extern size_t N;                       //!< Dimension of the grid
 extern gsl_vector_uint *nx;            //!< Number of grid boxes per dimension
-extern gsl_vector *nSTDLow;            //!< Number of standard deviations below mean to span by the grid 
-extern gsl_vector *nSTDHigh;           //!< Number of standard deviations above mean to span by the grid 
+extern gsl_vector *gridLimitsLow;      //!< Grid limits
+extern gsl_vector *gridLimitsUp;       //!< Grid limits
+extern char gridLimitsType[32];        //!< Grid limits type
 extern size_t nLags;                   //!< Number of transition lags for which to calculate the spectrum
 extern gsl_vector *tauRng;             //!< Lags for which to calculate the spectrum
 extern int nev;                        //!< Number of eigenvectors to calculate
@@ -56,6 +57,8 @@ extern bool stationary;                //!< Whether the problem is stationary or
 extern bool getForwardEigenvectors;    //!< Whether to get forward eigenvectors
 extern bool getBackwardEigenvectors;   //!< Whether to get backward eigenvectors
 extern bool makeBiorthonormal;         //!< Whether to make eigenvectors biorthonormal
+extern gsl_vector_uint *seedRng;       //!< Seeds used to initialize the simulations
+extern size_t nSeeds;                  //!< Number of seeds
 
 /** \file readConfig.hpp
  *  \brief Routines to parse a configuration file with libconfig++
