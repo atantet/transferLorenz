@@ -183,8 +183,8 @@ readConfig(const char *cfgFileName)
 			    (int) nearbyint(embd / 365 / printStep));
 	std::cout << embd << " ";
 	sprintf(cpyBuffer, obsName);
-	sprintf(obsName, "%s_c%zu_e%d", cpyBuffer,
-		gsl_vector_uint_get(components, d), (int) embd);
+	sprintf(obsName, "%s_c%d_e%d", cpyBuffer,
+		(int) gsl_vector_uint_get(components, d), (int) embd);
       }
     std::cout << "]" << std::endl;
 			    
