@@ -116,8 +116,8 @@ int main(int argc, char * argv[])
 	  seed = gsl_vector_uint_get(seedRng, s);
 	  
 	  // Get membership vector
-	  sprintf(srcFileName, "%s/simulation/sim%s_seed%u.%s",
-		  resDir, srcPostfix, seed, fileFormat);
+	  sprintf(srcFileName, "%s/simulation/sim%s_seed%d.%s",
+		  resDir, srcPostfix, (int) seed, fileFormat);
 	  
 	  // Open time series file
 	  if ((srcStream = fopen(srcFileName, "r")) == NULL)
@@ -179,8 +179,8 @@ int main(int argc, char * argv[])
 	  seed = gsl_vector_uint_get(seedRng, s);
 
 	  // Grid membership file name
-	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%u.%s",
-		  resDir, gridPostfix, seed, fileFormat);
+	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%d.%s",
+		  resDir, gridPostfix, (int) seed, fileFormat);
   
 	  // Open grid membership vector stream
 	  if ((gridMemStream = fopen(gridMemFileName, "w")) == NULL)
@@ -217,8 +217,8 @@ int main(int argc, char * argv[])
 	  seed = gsl_vector_uint_get(seedRng, s);
 
 	  // Grid membership file name
-	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%u.%s",
-		  resDir, gridPostfix, seed, fileFormat);
+	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%d.%s",
+		  resDir, gridPostfix, (int) seed, fileFormat);
 	  
 	  // Open grid membership stream for reading
 	  std::cout << "Reading grid membership vector for seed "

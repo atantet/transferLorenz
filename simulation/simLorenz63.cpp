@@ -77,12 +77,12 @@ int main(int argc, char * argv[])
     {
       // Get seed and set random number generator
       seed = gsl_vector_uint_get(seedRng, s);
-      printf("Setting random number generator with seed: %u\n", seed);
+      printf("Setting random number generator with seed: %d\n", (int) seed);
       gsl_rng_set(r, seed);
 
       // Define names and open destination file
-      sprintf(dstFileName, "%s/simulation/sim%s_seed%u.%s",
-	      resDir, srcPostfix, seed, fileFormat);
+      sprintf(dstFileName, "%s/simulation/sim%s_seed%d.%s",
+	      resDir, srcPostfix, (int) seed, fileFormat);
       if (!(dstStream = fopen(dstFileName, "w")))
 	{
 	  fprintf(stderr, "Can't open %s for writing simulation: ", dstFileName);
