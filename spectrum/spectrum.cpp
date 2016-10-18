@@ -55,7 +55,8 @@ int main(int argc, char * argv[])
     backwardTransitionFileName[256], finalDistFileName[256],
     maskFileName[256], postfix[256];
   transferOperator *transferOp;
-  gsl_vector *initDist, *finalDist;
+  gsl_vector *initDist = NULL;
+  gsl_vector *finalDist = NULL;
   gsl_vector_uint *mask;
 
   // Eigen problem
@@ -253,8 +254,10 @@ biorthonormal..."
 
   // Free
   freeConfig();
-  gsl_vector_free(initDist);
-  gsl_vector_free(finalDist);
+  if (initDist)
+    gsl_vector_free(initDist);
+  if (finalDist)
+    gsl_vector_free(finalDist);
   
   return 0;
 }
