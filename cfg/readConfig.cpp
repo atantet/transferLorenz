@@ -2,13 +2,25 @@
 
 // Configuration variables
 char resDir[256];               //!< Root directory in which results are written
-char caseName[256];             //!< Name of the case to simulate 
+char caseName[256];             //!< Name of the case
+char caseNameModel[256];        //!< Name of the case to simulate 
 double rho;                     //!< Parameters for the Lorenz flow
 double sigma;                   //!< Parameters for the Lorenz flow
 double beta;                    //!< Parameters for the Lorenz flow
-char fileFormat[256];          //!< File format of output ("txt" or "bin")
+char fileFormat[256];           //!< File format of output ("txt" or "bin")
 char delayName[256];            //!< Name associated with the number and values of the delays
 int dim;                        //!< Dimension of the phase space
+// Continuation
+double epsDist;                 //!< Tracking distance tolerance
+double epsStepCorrSize;         //!< Tracking correction step size tolerance
+int maxIter;                    //!< Maximum number of iterations for correction
+int numShoot;                   //!< Number of shoots
+double contStep;                //!< Step size of parameter for continuation
+double contMin;                 //!< Lower limit to which to continue
+double contMax;                 //!< Upper limit to which to continue
+bool verbose;                   //!< Verbose mode selection
+gsl_vector *initCont;           //!< Initial state for continuation
+// Simulation
 gsl_vector *initState;          //!< Initial state for simulation
 double LCut;                    //!< Length of the time series without spinup
 double spinup;                  //!< Length of initial spinup period to remove
@@ -16,7 +28,8 @@ double L;                       //!< Total length of integration
 double dt;                      //!< Time step of integration
 double printStep;               //!< Time step of output
 size_t printStepNum;            //!< Time step of output in number of time steps of integration
-char srcPostfix[256];           //!< Postfix of simulation file.
+char srcPostfix[256];           //!< Postfix 
+char srcPostfixModel[256];       //!< Postfix of simulation file.
 size_t nt0;                     //!< Number of time steps of the source time series
 size_t nt;                      //!< Number of time steps of the observable
 int dimObs;                     //!< Dimension of the observable
@@ -79,14 +92,15 @@ readConfig(const char *cfgFileName)
     
     // Case name
     strcpy(caseName, (const char *) cfg.lookup("model.caseName"));
+    strcpy(caseNameModel, (const char *) cfg.lookup("model.caseName"));
     std::cout << "Case name: " << caseName << std::endl;
     if (cfg.exists("model.rho") & cfg.exists("model.sigma") & cfg.exists("model.beta"))
       {
 	rho = cfg.lookup("model.rho");
 	sigma = cfg.lookup("model.sigma");
 	beta = cfg.lookup("model.beta");
-	strcpy(cpyBuffer, caseName);
-	sprintf(caseName, "%s_rho%d_sigma%d_beta%d", cpyBuffer,
+	strcpy(cpyBuffer, caseNameModel);
+	sprintf(caseNameModel, "%s_rho%d_sigma%d_beta%d", cpyBuffer,
 		(int) (rho * 1000), (int) (sigma * 1000), (int) (beta * 1000));
       }	
     
@@ -111,6 +125,39 @@ readConfig(const char *cfgFileName)
     std::cout << "Output file format: " << fileFormat << std::endl;
 
     
+    /** Get continuation settings */
+    if (cfg.exists("continuation"))
+      {
+	std::cout << "\n" << "---continuation---" << std::endl;
+	epsDist = cfg.lookup("continuation.epsDist");
+	std::cout << "epsDist = " << epsDist << std::endl;
+	epsStepCorrSize = cfg.lookup("continuation.epsStepCorrSize");
+	std::cout << "epsStepCorrSize = " << epsStepCorrSize << std::endl;
+	maxIter = cfg.lookup("continuation.maxIter");
+	std::cout << "maxIter = " << maxIter << std::endl;
+	numShoot = cfg.lookup("continuation.numShoot");
+	std::cout << "numShoot = " << numShoot << std::endl;
+	contStep = cfg.lookup("continuation.contStep");
+	std::cout << "contStep = " << contStep << std::endl;
+	contMin = cfg.lookup("continuation.contMin");
+	std::cout << "contMin = " << contMin << std::endl;
+	contMax = cfg.lookup("continuation.contMax");
+	std::cout << "contMax = " << contMax << std::endl;
+	verbose = cfg.lookup("continuation.verbose");
+	std::cout << "verbose = " << verbose << std::endl;
+	// Initial continuation state (dim+1 for fp, dim+2 for po)
+	const Setting &initContSetting = cfg.lookup("continuation.initCont");
+	initCont = gsl_vector_alloc(initContSetting.getLength());
+	std::cout << "initCont = [";
+	for (size_t i =0; i < (size_t) (initContSetting.getLength()); i++)
+	  {
+	    gsl_vector_set(initCont, i, initContSetting[i]);
+	    std::cout << gsl_vector_get(initCont, i) << " ";
+	  }
+	std::cout << "]" << std::endl;
+      }
+
+    
     /** Get simulation settings */
     std::cout << "\n" << "---simulation---" << std::endl;
 
@@ -120,7 +167,7 @@ readConfig(const char *cfgFileName)
 	const Setting &initStateSetting = cfg.lookup("simulation.initState");
 	initState = gsl_vector_alloc(dim);
 	std::cout << "initState = [";
-	for (size_t i =0; i < (size_t) dim; i++)
+	for (size_t i =0; i < (size_t) (initStateSetting.getLength()); i++)
 	  {
 	    gsl_vector_set(initState, i, initStateSetting[i]);
 	    std::cout << gsl_vector_get(initState, i) << " ";
@@ -309,10 +356,9 @@ readConfig(const char *cfgFileName)
     nt = nt0 - embedMax;
 
     // Define postfix and src file name
-    sprintf(srcPostfix, "_%s%s_L%d_spinup%d_dt%d_samp%d", caseName, delayName,
-	    (int) L, (int) spinup, (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)),
-	    (int) printStepNum);
-
+    sprintf(srcPostfix, "_%s%s", caseName, delayName);
+    sprintf(srcPostfixModel, "_%s%s", caseNameModel, delayName);
+	    
     // Define grid name
     sprintf(gridPostfix, "");
     for (size_t d = 0; d < (size_t) dimObs; d++) {
@@ -331,7 +377,7 @@ readConfig(const char *cfgFileName)
 	}
     }
     strcpy(cpyBuffer, gridPostfix);    
-    sprintf(gridPostfix, "%s%s%s", srcPostfix, obsName, cpyBuffer);
+    sprintf(gridPostfix, "%s%s%s", srcPostfixModel, obsName, cpyBuffer);
     sprintf(gridFileName, "%s/grid/grid%s.txt", resDir, gridPostfix);
 
 

@@ -34,7 +34,7 @@ int main(int argc, char * argv[])
 {
   FILE *dstStream;
   gsl_matrix *X;
-  char dstFileName[256];
+  char dstFileName[256], dstPostfix[256];
   size_t seed;
 
   // Read configuration file
@@ -81,8 +81,10 @@ int main(int argc, char * argv[])
       gsl_rng_set(r, seed);
 
       // Define names and open destination file
+      sprintf(dstPostfix, "%s_L%d_spinup%d_dt%d_samp%d", (int) L, (int) spinup,
+	      (int) round(-gsl_sf_log(dt)/gsl_sf_log(10) + 0.1), (int) printStepNum);
       sprintf(dstFileName, "%s/simulation/sim%s_seed%d.%s",
-	      resDir, srcPostfix, (int) seed, fileFormat);
+	      resDir, dstPostfix, (int) seed, fileFormat);
       if (!(dstStream = fopen(dstFileName, "w")))
 	{
 	  fprintf(stderr, "Can't open %s for writing simulation: ", dstFileName);

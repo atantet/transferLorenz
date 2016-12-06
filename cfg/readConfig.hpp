@@ -19,12 +19,24 @@ using namespace libconfig;
 // Configuration variables
 extern char resDir[256];               //!< Root directory in which results are written
 extern char caseName[256];             //!< Name of the case to simulate 
+extern char caseNameModel[256];        //!< Name of the case to simulate 
 extern double rho;                     //!< Parameters for the Lorenz flow
 extern double sigma;                   //!< Parameters for the Lorenz flow
 extern double beta;                    //!< Parameters for the Lorenz flow
 extern char fileFormat[256];          //!< File format of output ("txt" or "bin")
 extern char delayName[256];            //!< Name associated with the number and values of the delays
 extern int dim;                        //!< Dimension of the phase space
+// Continuation
+extern double epsDist;                 //!< Tracking distance tolerance
+extern double epsStepCorrSize;         //!< Tracking correction step size tolerance
+extern int maxIter;                    //!< Maximum number of iterations for correction
+extern int numShoot;                   //!< Number of shoots
+extern double contStep;                //!< Step size of parameter for continuation
+extern double contMin;                 //!< Lower limit to which to continue
+extern double contMax;                 //!< Limit to which to continue
+extern bool verbose;                   //!< Verbose mode selection
+extern gsl_vector *initCont;           //!< Initial state for continuation
+// Simulation
 extern gsl_vector *initState;          //!< Initial state for simulation
 extern double LCut;                    //!< Length of the time series without spinup
 extern double spinup;                  //!< Length of initial spinup period to remove
@@ -32,7 +44,8 @@ extern double L;                       //!< Total length of integration
 extern double dt;                      //!< Time step of integration
 extern double printStep;               //!< Time step of output
 extern size_t printStepNum;            //!< Time step of output in number of time steps of integration
-extern char srcPostfix[256];           //!< Postfix of simulation file.
+extern char srcPostfix[256];           //!< Postfix
+extern char srcPostfixModel[256];      //!< Postfix of simulation file.
 extern size_t nt0;                     //!< Number of time steps of the source time series
 extern size_t nt;                      //!< Number of time steps of the observable
 extern int dimObs;                     //!< Dimension of the observable
