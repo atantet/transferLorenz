@@ -92,16 +92,18 @@ readConfig(const char *cfgFileName)
     
     // Case name
     strcpy(caseName, (const char *) cfg.lookup("model.caseName"));
-    strcpy(caseNameModel, (const char *) cfg.lookup("model.caseName"));
     std::cout << "Case name: " << caseName << std::endl;
     if (cfg.exists("model.rho") & cfg.exists("model.sigma") & cfg.exists("model.beta"))
       {
 	rho = cfg.lookup("model.rho");
+	std::cout << "rho = " << rho << std::endl;
 	sigma = cfg.lookup("model.sigma");
+	std::cout << "sigma = " << sigma << std::endl;
 	beta = cfg.lookup("model.beta");
-	strcpy(cpyBuffer, caseNameModel);
-	sprintf(caseNameModel, "%s_rho%d_sigma%d_beta%d", cpyBuffer,
-		(int) (rho * 1000), (int) (sigma * 1000), (int) (beta * 1000));
+	std::cout << "beta = " << beta << std::endl;
+	sprintf(caseNameModel, "%s_rho%d_sigma%d_beta%d", caseName,
+		(int) (rho * 1000 + 0.1), (int) (sigma * 1000 + 0.1),
+		(int) (beta * 1000 + 0.1));
       }	
     
     // Get delays in days and the number of delays
@@ -227,7 +229,7 @@ readConfig(const char *cfgFileName)
       {
 	double embd = embedSetting[d];
 	gsl_vector_uint_set(embedding, d,
-			    (int) nearbyint(embd / 365 / printStep));
+			    (int) nearbyint(embd / printStep));
 	std::cout << embd << " ";
 	sprintf(cpyBuffer, obsName);
 	sprintf(obsName, "%s_c%d_e%d", cpyBuffer,
