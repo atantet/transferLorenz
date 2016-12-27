@@ -116,8 +116,8 @@ int main(int argc, char * argv[])
 	  seed = gsl_vector_uint_get(seedRng, s);
 	  
 	  // Get membership vector
-	  sprintf(srcFileName, "%s/simulation/sim%s_seed%u.%s",
-		  resDir, srcPostfix, seed, fileFormat);
+	  sprintf(srcFileName, "%s/simulation/sim%s_seed%d.%s",
+		  resDir, srcPostfix, (int) seed, fileFormat);
 	  
 	  // Open time series file
 	  if ((srcStream = fopen(srcFileName, "r")) == NULL)
@@ -179,8 +179,8 @@ int main(int argc, char * argv[])
 	  seed = gsl_vector_uint_get(seedRng, s);
 
 	  // Grid membership file name
-	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%u.%s",
-		  resDir, gridPostfix, seed, fileFormat);
+	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%d.%s",
+		  resDir, gridPostfix, (int) seed, fileFormat);
   
 	  // Open grid membership vector stream
 	  if ((gridMemStream = fopen(gridMemFileName, "w")) == NULL)
@@ -217,8 +217,8 @@ int main(int argc, char * argv[])
 	  seed = gsl_vector_uint_get(seedRng, s);
 
 	  // Grid membership file name
-	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%u.%s",
-		  resDir, gridPostfix, seed, fileFormat);
+	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%d.%s",
+		  resDir, gridPostfix, (int) seed, fileFormat);
 	  
 	  // Open grid membership stream for reading
 	  std::cout << "Reading grid membership vector for seed "
@@ -245,84 +245,79 @@ int main(int argc, char * argv[])
 
   
 
-  // Get transition matrices for different lags
-  for (size_t lag = 0; lag < nLags; lag++)
-    {
-      tau = gsl_vector_get(tauRng, lag);
-      tauNum = (size_t) round(tau / printStep + 0.1);
-      sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tau * 1000));
+  // Get transition matrices for the first lag only (memory reasons)
+  size_t lag = 0;
+  tau = gsl_vector_get(tauRng, lag);
+  tauNum = (size_t) round(tau / printStep + 0.1);
+  sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tau * 1000));
 
-      std::cout << "\nConstructing transfer operator for a lag of "
-		<< tau << std::endl;
+  std::cout << "\nConstructing transfer operator for a lag of "
+	    << tau << std::endl;
 
 
-      // Get full membership matrix
-      std::cout << "Getting full membership matrix from the list \
+  // Get full membership matrix
+  std::cout << "Getting full membership matrix from the list \
 of membership vecotrs..." << std::endl;
-      gridMemMatrix = memVectorList2memMatrix(&gridMemSeeds, tauNum);
+  gridMemMatrix = memVectorList2memMatrix(&gridMemSeeds, tauNum);
 
-      
-      // Get transition matrices as CSR
-      std::cout << "Building stationary transfer operator..." << std::endl;
-      transferOp = new transferOperator(gridMemMatrix, N, stationary);
-
-
-      // Write results
-      // Write forward transition matrix
-      std::cout << "Writing forward transition matrix and initial distribution..."
-		<< std::endl;
-      sprintf(forwardTransitionFileName,
-	      "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
-	      resDir, postfix, fileFormat);
-      transferOp->printForwardTransition(forwardTransitionFileName,
-					 fileFormat, "%.12lf");
-
-      // Write mask and initial distribution
-      if (lag == 0)
-	{
-	  sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
-		  resDir, gridPostfix, fileFormat);
-	  transferOp->printMask(maskFileName,
-				fileFormat, "%.12lf");
-
-	  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
-		  resDir, gridPostfix, fileFormat);
-	  transferOp->printInitDist(initDistFileName,
-				    fileFormat, "%.12lf");
-	}
-      
-      // Write backward transition matrix
-      if (!stationary)
-	{
-	  std::cout << "Writing backward transition matrix \
-and final distribution..." << std::endl;
-	  sprintf(backwardTransitionFileName,
-		  "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
-		  resDir, postfix, fileFormat);
-	  transferOp->printBackwardTransition(backwardTransitionFileName,
-					      fileFormat, "%.12lf");
-
-	  // Write final distribution 
-	  if (lag == 0)
-	    {
-	      sprintf(finalDistFileName,
-		      "%s/transfer/finalDist/finalDist%s.%s",
-		      resDir, postfix, fileFormat);
-	      transferOp->printFinalDist(finalDistFileName,
-					 fileFormat, "%.12lf");
-	    }
-	}
-	
-      // Free
-      delete transferOp;
-      gsl_matrix_uint_free(gridMemMatrix);
-    }
-
-  // Free
+  // Free gridMemSeeds to save memory before to build transfer operator
   for (size_t s = 0; s < nSeeds; s++)
     gsl_vector_uint_free(gridMemSeeds[s]);
+
+  
+  // Get transition matrices as CSR
+  std::cout << "Building stationary transfer operator..." << std::endl;
+  transferOp = new transferOperator(gridMemMatrix, N, stationary);
+  
+
+  // Write results
+  // Write forward transition matrix
+  std::cout << "Writing forward transition matrix and initial distribution..."
+	    << std::endl;
+  sprintf(forwardTransitionFileName,
+	  "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
+	  resDir, postfix, fileFormat);
+  transferOp->printForwardTransition(forwardTransitionFileName,
+				     fileFormat, "%.12lf");
+
+  // Write mask and initial distribution
+  sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
+	  resDir, gridPostfix, fileFormat);
+  transferOp->printMask(maskFileName,
+			fileFormat, "%.12lf");
+  
+  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
+	  resDir, gridPostfix, fileFormat);
+  transferOp->printInitDist(initDistFileName,
+			    fileFormat, "%.12lf");
+  
+  // Write backward transition matrix
+  if (!stationary)
+    {
+      std::cout << "Writing backward transition matrix \
+and final distribution..." << std::endl;
+      sprintf(backwardTransitionFileName,
+	      "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
+	      resDir, postfix, fileFormat);
+      transferOp->printBackwardTransition(backwardTransitionFileName,
+					  fileFormat, "%.12lf");
+      
+      // Write final distribution 
+      sprintf(finalDistFileName,
+	      "%s/transfer/finalDist/finalDist%s.%s",
+	      resDir, postfix, fileFormat);
+      transferOp->printFinalDist(finalDistFileName,
+				 fileFormat, "%.12lf");
+    }
+
+  
+  // Free membership matrix and transfer operator
+  delete transferOp;
+  gsl_matrix_uint_free(gridMemMatrix);
+
+  // Free config
   freeConfig();
-		
+  
   return 0;
 }
 
