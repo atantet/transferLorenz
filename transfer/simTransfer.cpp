@@ -67,6 +67,7 @@ int main(int argc, char * argv[])
      readSimulation(&cfg);
      readSprinkle(&cfg);
      readGrid(&cfg);
+     readTransfer(&cfg);
      std::cout << "Sparsing success.\n" << std::endl;
     }
   catch (...)
@@ -90,8 +91,10 @@ int main(int argc, char * argv[])
   // Transfer operator declarations
   char forwardTransitionFileName[256], initDistFileName[256],
     postfix[256], maskFileName[256];
-
   transferOperator *transferOp;
+
+  // Get lag
+  const double tau = gsl_vector_get(tauRng, 0);
 
   // Set random number generator
   gsl_rng * r = gsl_rng_alloc(gsl_rng_ranlxs1);
@@ -114,15 +117,14 @@ int main(int argc, char * argv[])
   grid->printGrid(gridFileName, "%.12lf", true);
 
   // Build transfer operator
-  transferOp = new transferOperator(N, true);
+  transferOp = new transferOperator(N, stationary);
 
   // Get transition count triplets
   std::cout << "Allocating transition count matrix for "
 	    << nTraj << " transitions" << std::endl;
   if (!(T = gsl_spmatrix_alloc_nzmax(N, N, nTraj, GSL_SPMATRIX_TRIPLET)))
     {
-      fprintf(stderr, "Error allocating\
-triplet count matrix.\n");
+      fprintf(stderr, "Error allocating triplet count matrix.\n");
       std::bad_alloc();
     }
   
@@ -183,7 +185,7 @@ triplet count matrix.\n");
 						 gsl_vector_get(maxBox, d)));
 
 	    // Numerical integration
-	    mod->integrateForward(IC, L, dt);
+	    mod->integrateForward(IC, tau, dt);
 
 	    // Get box of final state
 	    boxf = grid->getBoxMembership(mod->current);
@@ -222,12 +224,12 @@ triplet count matrix.\n");
   // Write results
   // Grid membership postfix
   sprintf(dstGridPostfix, "%s%s_sigma%04d_L%d_dt%d_nTraj%d",
-	  srcPostfix, gridPostfix, (int) (sigma * 1000 + 0.1), (int) (L * 1000),
+	  srcPostfix, gridPostfix, (int) (sigma * 1000 + 0.1), (int) (tau * 1000),
 	  (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)+0.1), nTraj);
-  sprintf(postfix, "%s_tau%03d", dstGridPostfix, (int) (L * 1000 + 0.1));
+  sprintf(postfix, "%s", dstGridPostfix);
 
   std::cout << "\nConstructing transfer operator for a lag of "
-	    << L << std::endl;
+	    << tau << std::endl;
 
   // Write forward transition matrix
   std::cout << "Writing forward transition matrix..."
