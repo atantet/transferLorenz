@@ -56,10 +56,11 @@ int main(int argc, char * argv[])
   gsl_matrix *solFM = gsl_matrix_alloc(dim + 1, dim + 1);
   gsl_vector_complex *eigVal = gsl_vector_complex_alloc(dim);
   gsl_vector_complex *FloquetExp = gsl_vector_complex_alloc(dim);
-  gsl_eigen_nonsymm_workspace *w = gsl_eigen_nonsymm_alloc(dim);
+  gsl_matrix_complex *FloquetVec = gsl_matrix_complex_alloc(dim, dim);
+  gsl_eigen_nonsymmv_workspace *w = gsl_eigen_nonsymmv_alloc(dim);
   gsl_matrix_view fm;
-  char dstFileName[256], dstFileNameFM[256], dstFileNameEig[256], dstPostfix[256];
-  FILE *dstStream, *dstStreamFM, *dstStreamEig;
+  char dstFileName[256], dstFileNameVec[256], dstFileNameExp[256], dstPostfix[256];
+  FILE *dstStream, *dstStreamVec, *dstStreamExp;
 
 
   // Define names and open destination file
@@ -76,24 +77,24 @@ int main(int argc, char * argv[])
 
   if (!(dstStream = fopen(dstFileName, "w")))
     {
-      fprintf(stderr, "Can't open %s for writing simulation: ", dstFileName);
+      fprintf(stderr, "Can't open %s for writing solution: ", dstFileName);
       perror("");
       return EXIT_FAILURE;
     }
-  sprintf(dstFileNameFM, "%s/continuation/poFMCont%s.%s",
+  sprintf(dstFileNameVec, "%s/continuation/poVecCont%s.%s",
 	  resDir, dstPostfix, fileFormat);
-  if (!(dstStreamFM = fopen(dstFileNameFM, "w")))
+  if (!(dstStreamVec = fopen(dstFileNameVec, "w")))
     {
-      fprintf(stderr, "Can't open %s for writing simulation: ", dstFileName);
+      fprintf(stderr, "Can't open %s for writing Floquet vectors: ", dstFileName);
       perror("");
       return EXIT_FAILURE;
     }
   
-  sprintf(dstFileNameEig, "%s/continuation/poExpCont%s.%s",
+  sprintf(dstFileNameExp, "%s/continuation/poExpCont%s.%s",
 	  resDir, dstPostfix, fileFormat);
-  if (!(dstStreamEig = fopen(dstFileNameEig, "w")))
+  if (!(dstStreamExp = fopen(dstFileNameExp, "w")))
     {
-      fprintf(stderr, "Can't open %s for writing simulation: ", dstFileName);
+      fprintf(stderr, "Can't open %s for writing Floquet exponents: ", dstFileName);
       perror("");
       return EXIT_FAILURE;
     }
@@ -146,10 +147,11 @@ int main(int argc, char * argv[])
       fm = gsl_matrix_submatrix(solFM, 0, 0, dim, dim);
 
       // Find eigenvalues
-      gsl_eigen_nonsymm(&fm.matrix, eigVal, w);
+      gsl_eigen_nonsymmv(&fm.matrix, eigVal, FloquetVec, w);
       // Convert to Floquet exponents
       gsl_vector_complex_log(FloquetExp, eigVal);
-      gsl_vector_complex_scale_real(FloquetExp, 1. / gsl_vector_get(initCont, dim));
+      gsl_vector_complex_scale_real(FloquetExp, 1. \
+				    / gsl_vector_get(initCont, dim + 1));
 
       // Print periodic orbit
       std::cout << "periodic orbit:" << std::endl;
@@ -182,10 +184,11 @@ int main(int argc, char * argv[])
       fm = gsl_matrix_submatrix(solFM, 0, 0, dim, dim);
 
       // Find eigenvalues
-      gsl_eigen_nonsymm(&fm.matrix, eigVal, w);
+      gsl_eigen_nonsymmv(&fm.matrix, eigVal, FloquetVec, w);
       // Convert to Floquet exponents
       gsl_vector_complex_log(FloquetExp, eigVal);
-      gsl_vector_complex_scale_real(FloquetExp, 1. / gsl_vector_get(initCont, dim));
+      gsl_vector_complex_scale_real(FloquetExp, 1. \
+				    / gsl_vector_get(initCont, dim + 1));
 
       // Print periodic orbit
       std::cout << "periodic orbit:" << std::endl;
@@ -194,14 +197,29 @@ int main(int argc, char * argv[])
       gsl_vector_complex_fprintf(stdout, FloquetExp, "%lf");
 
       // Write results
-      gsl_vector_fprintf(dstStream, initCont, "%lf");
-      gsl_vector_complex_fprintf(dstStreamEig, FloquetExp, "%lf");
-      gsl_matrix_fprintf(dstStreamFM, &fm.matrix, "%lf");
+      if (strcmp(fileFormat, "bin") == 0)
+	{
+	  gsl_vector_fwrite(dstStream, initCont);
+	  gsl_vector_complex_fwrite(dstStreamExp, FloquetExp);
+	  gsl_matrix_complex_fwrite(dstStreamVec, FloquetVec);
+	}
+      else
+	{
+	  gsl_vector_fprintf(dstStream, initCont, "%lf");
+	  gsl_vector_complex_fprintf(dstStreamExp, FloquetExp, "%lf");
+	  gsl_matrix_complex_fprintf(dstStreamVec, FloquetVec, "%lf");
+	}
+
+      // Flush in case premature exit
+      fflush(dstStream);
+      fflush(dstStreamExp);
+      fflush(dstStreamVec);
     }
 
-  gsl_eigen_nonsymm_free(w);
+  gsl_eigen_nonsymmv_free(w);
   gsl_vector_complex_free(eigVal);
   gsl_vector_complex_free(FloquetExp);
+  gsl_matrix_complex_free(FloquetVec);
   delete track;
   delete linMod;
   delete mod;
@@ -210,8 +228,8 @@ int main(int argc, char * argv[])
   delete field;
   gsl_matrix_free(solFM);
   gsl_vector_free(initCont);
-  fclose(dstStreamEig);
-  fclose(dstStreamFM);
+  fclose(dstStreamExp);
+  fclose(dstStreamVec);
   fclose(dstStream);  
   freeConfig();
 

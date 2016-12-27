@@ -54,10 +54,12 @@ int main(int argc, char * argv[])
 
   gsl_matrix *solJac = gsl_matrix_alloc(dim + 1, dim + 1);
   gsl_vector_complex *eigVal = gsl_vector_complex_alloc(dim);
-  gsl_eigen_nonsymm_workspace *w = gsl_eigen_nonsymm_alloc(dim);
+  gsl_matrix_complex *eigVec = gsl_matrix_complex_alloc(dim, dim);
+  gsl_eigen_nonsymmv_workspace *w = gsl_eigen_nonsymmv_alloc(dim);
   gsl_matrix_view jac;
-  char dstFileName[256], dstFileNameJac[256], dstFileNameEig[256], dstPostfix[256];
-  FILE *dstStream, *dstStreamJac, *dstStreamEig;
+  char dstFileName[256], dstFileNameEigVec[256], dstFileNameEigVal[256],
+    dstPostfix[256];
+  FILE *dstStream, *dstStreamEigVec, *dstStreamEigVal;
 
 
   // Define names and open destination file
@@ -76,18 +78,18 @@ int main(int argc, char * argv[])
       perror("");
       return EXIT_FAILURE;
     }
-  sprintf(dstFileNameJac, "%s/continuation/fpJacCont%s.%s",
+  sprintf(dstFileNameEigVec, "%s/continuation/fpEigVecCont%s.%s",
 	  resDir, dstPostfix, fileFormat);
-  if (!(dstStreamJac = fopen(dstFileNameJac, "w")))
+  if (!(dstStreamEigVec = fopen(dstFileNameEigVec, "w")))
     {
       fprintf(stderr, "Can't open %s for writing simulation: ", dstFileName);
       perror("");
       return EXIT_FAILURE;
     }
   
-  sprintf(dstFileNameEig, "%s/continuation/fpEigCont%s.%s",
+  sprintf(dstFileNameEigVal, "%s/continuation/fpEigValCont%s.%s",
 	  resDir, dstPostfix, fileFormat);
-  if (!(dstStreamEig = fopen(dstFileNameEig, "w")))
+  if (!(dstStreamEigVal = fopen(dstFileNameEigVal, "w")))
     {
       fprintf(stderr, "Can't open %s for writing simulation: ", dstFileName);
       perror("");
@@ -103,7 +105,8 @@ int main(int argc, char * argv[])
   linearField *Jacobian = new JacobianLorenz63Cont(sigma, beta, initCont);
 
   // Define fixed point problem
-  fixedPointCont *track = new fixedPointCont(field, Jacobian, eps, eps, maxIter);
+  fixedPointCont *track = new fixedPointCont(field, Jacobian, epsDist,
+					     epsStepCorrSize, maxIter);
 
   // First correct
   std::cout << "Applying initial correction..." << std::endl;
@@ -145,7 +148,7 @@ int main(int argc, char * argv[])
       jac = gsl_matrix_submatrix(solJac, 0, 0, dim, dim);
 
       // Find eigenvalues
-      gsl_eigen_nonsymm(&jac.matrix, eigVal, w);
+      gsl_eigen_nonsymmv(&jac.matrix, eigVal, eigVec, w);
 
       // Print fixed point
       std::cout << "Fixed point:" << std::endl;
@@ -154,20 +157,35 @@ int main(int argc, char * argv[])
       gsl_vector_complex_fprintf(stdout, eigVal, "%lf");
 
       // Write results
-      gsl_vector_fprintf(dstStream, initCont, "%lf");
-      gsl_vector_complex_fprintf(dstStreamEig, eigVal, "%lf");
-      gsl_matrix_fprintf(dstStreamJac, &jac.matrix, "%lf");
+      if (strcmp(fileFormat, "bin") == 0)
+	{
+	  gsl_vector_fwrite(dstStream, initCont);
+	  gsl_vector_complex_fwrite(dstStreamEigVal, eigVal);
+	  gsl_matrix_complex_fwrite(dstStreamEigVec, eigVec);
+	}
+      else
+	{
+	  gsl_vector_fprintf(dstStream, initCont, "%lf");
+	  gsl_vector_complex_fprintf(dstStreamEigVal, eigVal, "%lf");
+	  gsl_matrix_complex_fprintf(dstStreamEigVec, eigVec, "%lf");
+	}
+      
+      // Flush in case premature exit
+      fflush(dstStream);
+      fflush(dstStreamEigVal);
+      fflush(dstStreamEigVec);
     }
   
-  gsl_eigen_nonsymm_free(w);
+  gsl_eigen_nonsymmv_free(w);
   gsl_vector_complex_free(eigVal);
+  gsl_matrix_complex_free(eigVec);
   delete track;
   delete Jacobian;
   delete field;
   gsl_matrix_free(solJac);
   gsl_vector_free(initCont);
-  fclose(dstStreamEig);
-  fclose(dstStreamJac);
+  fclose(dstStreamEigVal);
+  fclose(dstStreamEigVec);
   fclose(dstStream);  
   freeConfig();
 

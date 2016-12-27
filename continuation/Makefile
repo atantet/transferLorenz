@@ -13,9 +13,9 @@ LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
 
 #EXE=FPLorenz63
-#EXE=FPContLorenz63
+EXE=FPContLorenz63
 #EXE=UPOLorenz63
-EXE=POContLorenz63
+#EXE=POContLorenz63
 
 all:$(EXE).out
 	mkdir -p ../results/continuation/

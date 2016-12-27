@@ -18,9 +18,10 @@ ntSamp = int(cfg.simulation.LCut / printStep + 0.1)
 time = np.arange(0., cfg.simulation.LCut, printStep)
 printStepNum = int(printStep / dt + 0.1)
 caseName = cfg.model.caseName
-caseNameModel = "%s_rho%d_sigma%d_beta%d" % (caseName, int(cfg.model.rho * 1000 + 0.1),
-                                            int(cfg.model.sigma * 1000 + 0.1),
-		                            int(cfg.model.beta * 1000 + 0.1));
+caseNameModel = "%s_rho%d_sigma%d_beta%d" % (caseName,
+                                             int(cfg.model.rho * 1000 + 0.1),
+                                             int(cfg.model.sigma * 1000 + 0.1),
+		                             int(cfg.model.beta * 1000 + 0.1));
 
 delayName = ""
 if (hasattr(cfg.model, 'delaysDays')):
@@ -83,6 +84,8 @@ print 'Plotting stretching rates...'
 fig = plt.figure(figsize=(8, 10))
 colorsStretch = ['r', 'g', 'b']
 LyapExpNames = ['+', '0', '-']
+xminStretch = -10.
+xmaxStretch = -xminStretch
 ax = []
 for d in np.arange(dim):
     ax.append(fig.add_subplot(310 + d + 1))
@@ -94,6 +97,7 @@ for d in np.arange(dim):
     ax[d].set_xlim(timeWin[0], timeWin[-1])
     plt.setp(ax[d].get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
     plt.setp(ax[d].get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
+    ax[d].set_ylim(LyapExp[d] + xminStretch, LyapExp[d] + xmaxStretch)
 ax[d].set_xlabel(r'$t$', fontsize=ergoPlot.fs_latex)
 # ax.set_ylim(1.2, 2.8)
 fig.savefig('%s/CLV/stretchRate%s.eps' % (plotDir, dstPostfix),

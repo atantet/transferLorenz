@@ -3,7 +3,7 @@ LIBDIR=-L$(HOME)/local/lib/
 LIBS=-lgsl -lconfig++ -lergopack -lgomp
 CONFIG=../cfg/readConfig
 
-CC=g++
+CC=g++ -fopenmp
 WARN=-Wall -Wformat=0
 CFLAGS=$(WARN) -pedantic-errors -O3
 LDFLAGSSTD=-undefined dynamic_lookup
@@ -12,7 +12,8 @@ LDFLAGSGDB=$(LDFLAGSSTD) -gdb
 LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
 
-EXE=transfer
+#EXE=transfer
+EXE=simTransfer
 
 all:$(EXE).out
 	mkdir -p ../results/transfer/forwardTransition

@@ -180,7 +180,6 @@ contStepRngFP = [0.001, 0.001, -0.001]
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 dist = []
-dashes=(4, 10)
 for k in np.arange(len(initContRngFP)):
     initContFP = initContRngFP[k]
     contStepFP = contStepRngFP[k]
@@ -203,12 +202,12 @@ for k in np.arange(len(initContRngFP)):
 
     isStable = np.max(eig.real, 1) < 0
 
-    plt.plot(fp[isStable, 0], fp[isStable, 1], fp[isStable, 2], '-k', linewidth=2,
-             dashes=dashes)
-    plt.plot(fp[~isStable, 0], fp[~isStable, 1], fp[~isStable, 2], '--k', linewidth=2,
-             dashes=dashes)
+    plt.plot(fp[isStable, 0], fp[isStable, 1], fp[isStable, 2], '-k',
+             linewidth=2)
+    plt.plot(fp[~isStable, 0], fp[~isStable, 1], fp[~isStable, 2], '--k',
+             linewidth=2)
 
-sampOrbitRng = [100, 1000]
+sampOrbitRng = [100, 2000]
 sampInit = [0, 0]
 for k in np.arange(nCont):
     sampOrbit = sampOrbitRng[k]
@@ -254,24 +253,26 @@ for k in np.arange(nCont):
     else:
         ls = '--'
     #plt.plot(xt[:, 0] + xt[:, 2], xt[:, 1], xt[:, 3], linestyle=ls, linewidth=2)
-    plt.plot(xt[:, 0], xt[:, 1], xt[:, 2], linestyle=ls, linewidth=2)
+    #plt.plot(xt[:, 0], xt[:, 1], xt[:, 2], color='b',
+    #         linestyle=ls, linewidth=2)
 
-# # Homoclinic orbit
-# print 'Propagating homoclinic orbit.'
-# Th = 100.
-# nt = int(np.ceil(Th*10 / cfg.simulation.dt))
-# # propagate
-# p = [0.79, cfg.model.ci, cfg.model.li]
-# #p = [0.789, cfg.model.ci, cfg.model.li]
-# x0 = np.array([0.075126, 2.68851, 2.455366, -2.314435])
-# #x0 = np.array([0.075126, 2.68851, 2.455366, -2.314435])
-# xt = propagateRK4(x0, field, p, cfg.simulation.dt, nt)
-# spinup = int(Th*6 / cfg.simulation.dt)
-# xt = xt[spinup:]
-# plt.plot(xt[:, 0] + xt[:, 2], xt[:, 1], '--k')
+# Homoclinic orbit
+print 'Propagating homoclinic orbit.'
+Th = T
+nt = int(np.ceil(Th*3. / cfg.simulation.dt))
+# propagate
+p = [cont-0.180099, cfg.model.sigma, cfg.model.beta]
+#x0 = xt[-1]
+#x0[2] += 0.1
+#x0 = np.array([ 0.152511, 0.25898653, 0.49468841])
+x0 = np.array([ 0.152511, 0.25898653, 0.49468841]) / 10000
+xt = propagateRK4(x0, field, p, cfg.simulation.dt*10, nt/10)
+spinup = int(Th*6 / cfg.simulation.dt / 10)
+line, = plt.plot(xt[:, 0], xt[:, 1], xt[:, 2], '--k', linewidth=1)
 
 ax.set_xlabel(r'$x$', fontsize=fs_latex)
-ax.set_ylabel(r'$z$', fontsize=fs_latex)
+ax.set_ylabel(r'$y$', fontsize=fs_latex)
+ax.set_zlabel(r'$z$', fontsize=fs_latex)
 # ax.set_xlim(-2.8, 2.8)
 # ax.set_ylim(1.2, 2.8)
 plt.setp(ax.get_xticklabels(), fontsize=fs_xticklabels)
