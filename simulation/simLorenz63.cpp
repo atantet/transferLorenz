@@ -10,6 +10,7 @@
 #include <gsl/gsl_randist.h>
 #include <libconfig.h++>
 #include <ODESolvers.hpp>
+#include <ODEFields.hpp>
 #include "../cfg/readConfig.hpp"
 
 using namespace libconfig;
@@ -34,7 +35,7 @@ int main(int argc, char * argv[])
 {
   FILE *dstStream;
   gsl_matrix *X;
-  char dstFileName[256];
+  char dstFileName[256], dstPostfix[256];
   size_t seed;
 
   // Read configuration file
@@ -66,7 +67,7 @@ int main(int argc, char * argv[])
   
   // Define numerical scheme
   std::cout << "Defining deterministic numerical scheme..." << std::endl;
-  numericalScheme *scheme = new RungeKutta4(dim, dt);
+  numericalScheme *scheme = new RungeKutta4(dim);
 
   // Define model (the initial state will be assigned later)
   std::cout << "Defining deterministic model..." << std::endl;
@@ -77,15 +78,29 @@ int main(int argc, char * argv[])
     {
       // Get seed and set random number generator
       seed = gsl_vector_uint_get(seedRng, s);
+<<<<<<< HEAD
       printf("Setting random number generator with seed: %d\n", (int) seed);
       gsl_rng_set(r, seed);
 
       // Define names and open destination file
       sprintf(dstFileName, "%s/simulation/sim%s_seed%d.%s",
 	      resDir, srcPostfix, (int) seed, fileFormat);
+=======
+      std::cout << "Setting random number generator with seed: " << seed
+		<< std::endl;;
+      gsl_rng_set(r, seed);
+
+      // Define names and open destination file
+      sprintf(dstPostfix, "%s_L%d_spinup%d_dt%d_samp%d", srcPostfixModel, (int) L,
+	      (int) spinup, (int) (round(-gsl_sf_log(dt)/gsl_sf_log(10)) + 0.1),
+	      (int) printStepNum);
+      sprintf(dstFileName, "%s/simulation/sim%s_seed%d.%s",
+	      resDir, dstPostfix, (int) seed, fileFormat);
+>>>>>>> 753572aebb1cc5164212e76d5de8decc47e5d291
       if (!(dstStream = fopen(dstFileName, "w")))
 	{
-	  fprintf(stderr, "Can't open %s for writing simulation: ", dstFileName);
+	  std::cerr << "Can't open " << dstFileName << " for writing simulation: "
+		    << std::endl;;
 	  perror("");
 	  return EXIT_FAILURE;
 	}
@@ -103,11 +118,11 @@ int main(int argc, char * argv[])
       mod->setCurrentState(initState);
 
       // Numerical integration
-      printf("Integrating simulation...\n");
-      X = mod->integrateForward(L, spinup, printStepNum);
+      std::cout << "Integrating simulation..." << std::endl;
+      mod->integrateForward(initState, L, dt, spinup, printStepNum, &X);
 
       // Write results
-      printf("Writing...\n");
+      std::cout << "Writing..." << std::endl;
       if (strcmp(fileFormat, "bin") == 0)
 	gsl_matrix_fwrite(dstStream, X);
       else

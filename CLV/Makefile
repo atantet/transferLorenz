@@ -3,31 +3,19 @@ LIBDIR=-L$(HOME)/local/lib/
 LIBS=-lgsl -lgslcblas -lconfig++ -lergopack -lgomp
 CONFIG=../cfg/readConfig
 
-<<<<<<< HEAD
-CC=icc -openmp
-=======
-CC=g++ -fopenmp
->>>>>>> 753572aebb1cc5164212e76d5de8decc47e5d291
+CC=g++
 WARN=-Wall -Wformat=0
-CFLAGS=$(WARN) -O3
-LDFLAGSSTD=
+CFLAGS=$(WARN) -pedantic-errors -O3
+LDFLAGSSTD=-undefined dynamic_lookup
 LDFLAGSGDB=$(LDFLAGSSTD) -gdb
 
 LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
 
-#EXE=transfer
-EXE=simTransfer
+EXE=CLVLorenz63
 
 all:$(EXE).out
-	mkdir -p ../results/grid
-	mkdir -p ../results/transfer/forwardTransition
-	mkdir -p ../results/transfer/backwardTransition
-	mkdir -p ../results/transfer/initDist
-	mkdir -p ../results/transfer/finalDist
-	mkdir -p ../results/transfer/gridMem
-	mkdir -p ../results/transfer/mask
-	mkdir -p ../results/grid/
+	mkdir -p ../results/CLV/
 
 $(EXE).o:$(EXE).cpp
 	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<

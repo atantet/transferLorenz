@@ -9,7 +9,7 @@ cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
 
 readCount = int(np.round(cfg.model.dim * cfg.simulation.LCut \
-                         / cfg.simulation.printStep / 4))
+                         / cfg.simulation.printStep / 2))
 
 delayName = ""
 if hasattr(cfg.model, 'delaysDays'):
@@ -34,9 +34,10 @@ corrName = 'C%d%d' % (cfg.stat.idxf, cfg.stat.idxg)
 powerName = 'S%d%d' % (cfg.stat.idxf, cfg.stat.idxg)
 
 # Read time series
-simFile = '%s/simulation/sim%s.%s' % (cfg.general.resDir, srcPostfix, cfg.simulation.file_format)
+simFile = '%s/simulation/sim%s.%s' % (cfg.general.resDir, srcPostfix,
+                                      cfg.general.fileFormat)
 print 'Reading time series from ' + simFile
-if cfg.simulation.file_format == 'bin':
+if cfg.general.fileFormat == 'bin':
     X = np.fromfile(simFile, dtype=float, count=readCount)
 else:
     X = np.loadtxt(simFile, dtype=float)

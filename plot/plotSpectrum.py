@@ -82,72 +82,72 @@ zticks = np.logspace(np.log10(zlimEig[0]), np.log10(zlimEig[1]),
                      int(np.round(np.log10(zlimEig[1]/zlimEig[0])/2 + 1)))
 
 
-# Read grid
-gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
-coord = ergoPlot.readGrid(gridFile, dimObs)
-if dimObs == 1:
-    X = coord[0]
-elif dimObs == 2:
-    X, Y = np.meshgrid(coord[0], coord[1])
-    coord = (X.flatten(), Y.flatten())
-elif dimObs == 3:
-    X, Y, Z = np.meshgrid(coord[0], coord[1], coord[2], indexing='ij')
-    coord = (X.flatten(), Y.flatten(), Z.flatten())
+# # Read grid
+# gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
+# coord = ergoPlot.readGrid(gridFile, dimObs)
+# if dimObs == 1:
+#     X = coord[0]
+# elif dimObs == 2:
+#     X, Y = np.meshgrid(coord[0], coord[1])
+#     coord = (X.flatten(), Y.flatten())
+# elif dimObs == 3:
+#     X, Y, Z = np.meshgrid(coord[0], coord[1], coord[2], indexing='ij')
+#     coord = (X.flatten(), Y.flatten(), Z.flatten())
 
-# Define file names
-postfix = "%s_tau%03d" % (gridPostfix, tau * 1000)
-eigValForwardFile = '%s/eigval/eigvalForward_nev%d%s.%s' \
-                    % (cfg.general.specDir, cfg.spectrum.nev, postfix,
-                       cfg.general.fileFormat)
-eigVecForwardFile = '%s/eigvec/eigvecForward_nev%d%s.%s' \
-                    % (cfg.general.specDir, cfg.spectrum.nev, postfix,
-                    cfg.general.fileFormat)
-eigValBackwardFile = '%s/eigval/eigvalBackward_nev%d%s.%s' \
-                    % (cfg.general.specDir, cfg.spectrum.nev, postfix,
-                    cfg.general.fileFormat)
-eigVecBackwardFile = '%s/eigvec/eigvecBackward_nev%d%s.%s' \
-                    % (cfg.general.specDir, cfg.spectrum.nev, postfix,
-                    cfg.general.fileFormat)
-statDistFile = '%s/transfer/initDist/initDist%s.%s' \
-               % (cfg.general.resDir, gridPostfix, cfg.general.fileFormat)
-maskFile = '%s/transfer/mask/mask%s.%s' \
-           % (cfg.general.resDir, gridPostfix, cfg.general.fileFormat)
+# # Define file names
+# postfix = "%s_tau%03d" % (gridPostfix, tau * 1000)
+# eigValForwardFile = '%s/eigval/eigvalForward_nev%d%s.%s' \
+#                     % (cfg.general.specDir, cfg.spectrum.nev, postfix,
+#                        cfg.general.fileFormat)
+# eigVecForwardFile = '%s/eigvec/eigvecForward_nev%d%s.%s' \
+#                     % (cfg.general.specDir, cfg.spectrum.nev, postfix,
+#                     cfg.general.fileFormat)
+# eigValBackwardFile = '%s/eigval/eigvalBackward_nev%d%s.%s' \
+#                     % (cfg.general.specDir, cfg.spectrum.nev, postfix,
+#                     cfg.general.fileFormat)
+# eigVecBackwardFile = '%s/eigvec/eigvecBackward_nev%d%s.%s' \
+#                     % (cfg.general.specDir, cfg.spectrum.nev, postfix,
+#                     cfg.general.fileFormat)
+# statDistFile = '%s/transfer/initDist/initDist%s.%s' \
+#                % (cfg.general.resDir, gridPostfix, cfg.general.fileFormat)
+# maskFile = '%s/transfer/mask/mask%s.%s' \
+#            % (cfg.general.resDir, gridPostfix, cfg.general.fileFormat)
 
-# Read stationary distribution
-if statDistFile is not None:
-    if cfg.general.fileFormat == 'bin':
-        statDist = np.fromfile(statDistFile, float)
-    else:
-        statDist = np.loadtxt(statDistFile, float)
-else:
-    statDist = None
+# # Read stationary distribution
+# if statDistFile is not None:
+#     if cfg.general.fileFormat == 'bin':
+#         statDist = np.fromfile(statDistFile, float)
+#     else:
+#         statDist = np.loadtxt(statDistFile, float)
+# else:
+#     statDist = None
 
-# Read mask
-if maskFile is not None:
-    if cfg.general.fileFormat == 'bin':
-        mask = np.fromfile(maskFile, np.int32)
-    else:
-        mask = np.loadtxt(maskFile, np.int32)
-else:
-    mask = np.arange(N)
-NFilled = np.max(mask[mask < N]) + 1
+# # Read mask
+# if maskFile is not None:
+#     if cfg.general.fileFormat == 'bin':
+#         mask = np.fromfile(maskFile, np.int32)
+#     else:
+#         mask = np.loadtxt(maskFile, np.int32)
+# else:
+#     mask = np.arange(N)
+# NFilled = np.max(mask[mask < N]) + 1
 
-# Read transfer operator spectrum from file and create a bi-orthonormal basis
-# of eigenvectors and backward eigenvectors:
-print 'Readig spectrum for tau = %.3f...' % tau
-(eigValForward, eigValBackward, eigVecForward, eigVecBackward) \
-    = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
-                            eigVecForwardFile, eigVecBackwardFile,
-                            makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
-                            fileFormat=cfg.general.fileFormat,
-                            statDist=statDist)
+# # Read transfer operator spectrum from file and create a bi-orthonormal basis
+# # of eigenvectors and backward eigenvectors:
+# print 'Readig spectrum for tau = %.3f...' % tau
+# (eigValForward, eigValBackward, eigVecForward, eigVecBackward) \
+#     = ergoPlot.readSpectrum(eigValForwardFile, eigValBackwardFile,
+#                             eigVecForwardFile, eigVecBackwardFile,
+#                             makeBiorthonormal=~cfg.spectrum.makeBiorthonormal,
+#                             fileFormat=cfg.general.fileFormat,
+#                             statDist=statDist)
 
-print 'Getting conditionning of eigenvectors...'
-eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward,
-                                            statDist)
+# print 'Getting conditionning of eigenvectors...'
+# eigenCondition = ergoPlot.getEigenCondition(eigVecForward, eigVecBackward,
+#                                             statDist)
 
-# Get generator eigenvalues (using the complex logarithm)
-eigValGen = np.log(eigValForward) / tau
+# # Get generator eigenvalues (using the complex logarithm)
+# eigValGen = np.log(eigValForward) / tau
 
 # Plot eigenvectors of transfer operator
 alpha = 0.0
@@ -260,11 +260,10 @@ weights = ergoPlot.getSpectralWeights(f, g, eigVecForward, eigVecBackward,
 weights[eigenCondition > cfg.stat.maxCondition] = 0.
 condition = np.empty(eigenCondition.shape, dtype='S1')
 condition[:] = 'k'
-condition[eigenCondition > cfg.stat.maxCondition - 0.001] = 'w'
+#condition[eigenCondition > cfg.stat.maxCondition - 0.001] = 'w'
 (corrRec, compCorrRec) = ergoPlot.spectralRecCorrelation(lags, f, g,
                                                          eigValGen, weights,
                                                          statDist,
-                                                         skipMean=False,
                                                          norm=cfg.stat.norm)
 (powerRec, compPowerRec) = ergoPlot.spectralRecPower(angFreq, f, g,
                                                      eigValGen, weights,
