@@ -69,6 +69,23 @@ int main(int argc, char * argv[])
      readGrid(&cfg);
      std::cout << "Sparsing success.\n" << std::endl;
     }
+  catch(const SettingNotFoundException &nfex) {
+    std::cerr << "Setting " << nfex.getPath() << " not found." << std::endl;
+    throw nfex;
+  }
+  catch(const FileIOException &fioex) {
+    std::cerr << "I/O error while reading configuration file." << std::endl;
+    throw fioex;
+  }
+  catch(const ParseException &pex) {
+    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
+              << " - " << pex.getError() << std::endl;
+    throw pex;
+  }
+  catch(const SettingTypeException &stex) {
+    std::cerr << "Setting type exception." << std::endl;
+    throw stex;
+  }
   catch (...)
     {
       std::cerr << "Error reading configuration file" << std::endl;
@@ -117,9 +134,10 @@ int main(int argc, char * argv[])
   transferOp = new transferOperator(N, true);
 
   // Get transition count triplets
+  const size_t nTrajAlloc = nTraj / 10;
   std::cout << "Allocating transition count matrix for "
-	    << nTraj << " transitions" << std::endl;
-  if (!(T = gsl_spmatrix_alloc_nzmax(N, N, nTraj, GSL_SPMATRIX_TRIPLET)))
+	    << nTrajAlloc << " transitions" << std::endl;
+  if (!(T = gsl_spmatrix_alloc_nzmax(N, N, nTrajAlloc, GSL_SPMATRIX_TRIPLET)))
     {
       fprintf(stderr, "Error allocating\
 triplet count matrix.\n");

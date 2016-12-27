@@ -3,11 +3,7 @@ LIBDIR=-L$(HOME)/local/lib/
 LIBS=-lgsl -lgslcblas -lconfig++ -lergopack -lgomp
 CONFIG=../cfg/readConfig
 
-<<<<<<< HEAD
 CC=icc -openmp
-=======
-CC=g++ -fopenmp
->>>>>>> 753572aebb1cc5164212e76d5de8decc47e5d291
 WARN=-Wall -Wformat=0
 CFLAGS=$(WARN) -O3
 LDFLAGSSTD=

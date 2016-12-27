@@ -39,9 +39,35 @@ int main(int argc, char * argv[])
       strcpy(configFileName, argv[1]);
     }
   try
-   {
-     readConfig(configFileName);
+    {
+      Config cfg;
+      std::cout << "Sparsing config file " << configFileName << std::endl;
+      cfg.readFile(configFileName);
+      readGeneral(&cfg);
+      readModel(&cfg);
+      readSimulation(&cfg);
+      readSprinkle(&cfg);
+      readGrid(&cfg);
+      readSpectrum(&cfg);
+      std::cout << "Sparsing success.\n" << std::endl;
     }
+  catch(const SettingNotFoundException &nfex) {
+    std::cerr << "Setting " << nfex.getPath() << " not found." << std::endl;
+    throw nfex;
+  }
+  catch(const FileIOException &fioex) {
+    std::cerr << "I/O error while reading configuration file." << std::endl;
+    throw fioex;
+  }
+  catch(const ParseException &pex) {
+    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
+              << " - " << pex.getError() << std::endl;
+    throw pex;
+  }
+  catch(const SettingTypeException &stex) {
+    std::cerr << "Setting type exception." << std::endl;
+    throw stex;
+  }
   catch (...)
     {
       std::cerr << "Error reading configuration file" << std::endl;

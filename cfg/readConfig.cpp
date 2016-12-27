@@ -228,38 +228,6 @@ readSimulation(const Config *cfg)
   else
     std::cout << "Simulation configuration section does not exist." << std::endl;
 
-<<<<<<< HEAD
-    
-    // Get observable settings
-    std::cout << std::endl << "---observable---" << std::endl;
-    
-    // Components
-    const Setting &compSetting = cfg.lookup("observable.components");
-    dimObs = compSetting.getLength();
-    components = gsl_vector_uint_alloc(dimObs);
-    std::cout << "Components: [";
-    for (size_t d = 0; d < (size_t) dimObs; d++)
-      {
-	gsl_vector_uint_set(components, d, compSetting[d]);
-	std::cout << gsl_vector_uint_get(components, d) << " ";
-      }
-    std::cout << "]" << std::endl;
-
-    // Embedding
-    const Setting &embedSetting = cfg.lookup("observable.embeddingDays");
-    embedding = gsl_vector_uint_alloc(dimObs);
-    sprintf(obsName, "");
-    std::cout << "Embedding: [";
-    for (size_t d = 0; d < (size_t) dimObs; d++)
-      {
-	double embd = embedSetting[d];
-	gsl_vector_uint_set(embedding, d,
-			    (int) nearbyint(embd / 365 / printStep));
-	std::cout << embd << " ";
-	sprintf(cpyBuffer, obsName);
-	sprintf(obsName, "%s_c%d_e%d", cpyBuffer,
-		(int) gsl_vector_uint_get(components, d), (int) embd);
-=======
   return;
 }
 
@@ -288,7 +256,6 @@ readSprinkle(const Config *cfg)
       for (size_t d = 0; d < (size_t) dim; d++) {
 	gsl_vector_set(minInitState, d, minInitStateSetting[d]);
 	std::cout << gsl_vector_get(minInitState, d) << ", ";
->>>>>>> 753572aebb1cc5164212e76d5de8decc47e5d291
       }
       std::cout << "}" << std::endl;
 
