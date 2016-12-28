@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstring>
 #include <stdexcept>
+#include <cmath>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_math.h>
@@ -32,6 +33,11 @@
  * are calculated from the membership matrix.
  * Finally, the results are printed.
  */
+
+/** \brief Conversion from spherical to Cartesian coordinates. */
+void sphere2Cart(gsl_vector *x);
+/** \brief Conversion from Cartesian to spherical coordinates. */
+void cart2Sphere(gsl_vector *x);
 
 
 /** \brief Calculate transfer operators from time series.
@@ -184,8 +190,14 @@ int main(int argc, char * argv[])
 	      gsl_vector_set(IC, d, gsl_ran_flat(r, gsl_vector_get(minBox, d),
 						 gsl_vector_get(maxBox, d)));
 
+	    // Convert initial condition from spherical to Cartesian coordinates
+	    sphere2Cart(IC);
+
 	    // Numerical integration
 	    mod->integrateForward(IC, tau, dt);
+
+	    // Convert final state from Cartesian to adapted spherical coordinates
+	    cart2Sphere(mod->current);
 
 	    // Get box of final state
 	    boxf = grid->getBoxMembership(mod->current);
@@ -223,8 +235,8 @@ int main(int argc, char * argv[])
   
   // Write results
   // Grid membership postfix
-  sprintf(dstGridPostfix, "%s%s_sigma%04d_L%d_dt%d_nTraj%d",
-	  srcPostfix, gridPostfix, (int) (sigma * 1000 + 0.1), (int) (tau * 1000),
+  sprintf(dstGridPostfix, "%s%s_rho%04d_L%d_dt%d_nTraj%d",
+	  srcPostfix, gridPostfix, (int) (rho * 100 + 0.1), (int) (tau * 1000),
 	  (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)+0.1), nTraj);
   sprintf(postfix, "%s", dstGridPostfix);
 
@@ -256,5 +268,62 @@ int main(int argc, char * argv[])
   freeConfig();
   
   return 0;
+}
+
+
+/** 
+ * Conversion from spherical to Cartesian coordinates
+ * centered at (0, 0, rho + sigma) and of unit radius rho + sigma.
+ * \param[inout] x Coordinates of vector to convert.
+ */
+void
+sphere2Cart(gsl_vector *X)
+{
+  double x, y, z;
+  double r, theta, phi;
+  
+  r = gsl_vector_get(X, 0);
+  theta = gsl_vector_get(X, 1);    
+  phi = gsl_vector_get(X, 2);
+
+  r *= rho + sigma;
+  
+  x = r * sin(theta) * cos(phi);
+  y = r * sin(theta) * sin(phi);
+  z = r * cos(theta);
+
+  gsl_vector_set(X, 0, x);
+  gsl_vector_set(X, 1, y);
+  gsl_vector_set(X, 2, z + rho + sigma);
+  
+  return;
+}
+
+/** 
+ * Conversion from Cartesian to spherical coordinates
+ * centered at (0, 0, rho + sigma) and of unit radius rho + sigma.
+ * \param[inout] x Coordinates of vector to convert.
+ */
+void
+cart2Sphere(gsl_vector *X)
+{
+  double r, theta, phi;
+  double x, y, z;
+
+  x = gsl_vector_get(X, 0);
+  y = gsl_vector_get(X, 1);    
+  z = gsl_vector_get(X, 2) - (rho + sigma);
+
+  r = sqrt(gsl_pow_2(x) + gsl_pow_2(y) + gsl_pow_2(z));
+  theta = acos(z / r);
+  phi = atan2(y, x);
+  r /= rho + sigma;
+
+
+  gsl_vector_set(X, 0, r);
+  gsl_vector_set(X, 1, theta);
+  gsl_vector_set(X, 2, phi);
+  
+  return;
 }
 
