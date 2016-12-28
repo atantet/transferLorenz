@@ -241,8 +241,8 @@ int main(int argc, char * argv[])
   
   // Write results
   // Grid membership postfix
-  sprintf(dstGridPostfix, "%s%s_sigma%04d_L%d_dt%d_nTraj%d",
-	  srcPostfix, gridPostfix, (int) (sigma * 1000 + 0.1), (int) (tau * 1000),
+  sprintf(dstGridPostfix, "%s%s_rho%04d_L%d_dt%d_nTraj%d",
+	  srcPostfix, gridPostfix, (int) (rho * 100 + 0.1), (int) (tau * 1000),
 	  (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)+0.1), nTraj);
   sprintf(postfix, "%s", dstGridPostfix);
 
