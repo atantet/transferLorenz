@@ -81,8 +81,6 @@ int main(int argc, char * argv[])
     backwardTransitionFileName[256], finalDistFileName[256],
     maskFileName[256], srcPostfix[256], srcPostfixSim[256], postfix[256];
   transferOperator *transferOp;
-  gsl_vector *initDist, *finalDist;
-  gsl_vector_uint *mask;
 
   // Eigen problem
   char EigValForwardFileName[256], EigVecForwardFileName[256],
@@ -143,10 +141,6 @@ int main(int argc, char * argv[])
 		<< maskFileName << std::endl;
       transferOp->scanMask(maskFileName, fileFormat);
       
-      // Save mask
-      mask = gsl_vector_uint_alloc(transferOp->getN());
-      gsl_vector_uint_memcpy(mask, transferOp->mask);
-
       // Allocate memory to distributions
       transferOp->allocateDist();
 
@@ -158,10 +152,6 @@ int main(int argc, char * argv[])
       transferOp->scanInitDist(initDistFileName,
 			       fileFormat);
       
-      // Save initial distribution
-      initDist = gsl_vector_alloc(transferOp->getNFilled());
-      gsl_vector_memcpy(initDist, transferOp->initDist);
-
       if (!stationary)
 	{
 	  // Scan backward transition matrix
@@ -178,11 +168,7 @@ int main(int argc, char * argv[])
 		    << finalDistFileName << std::endl;
 	  transferOp->scanFinalDist(finalDistFileName,
 				    fileFormat);
-      
-	  // Save final distribution
-	  finalDist = gsl_vector_alloc(transferOp->getNFilled());
-	  gsl_vector_memcpy(finalDist, transferOp->finalDist);
-	}
+      	}
     }
   catch (std::exception &ex)
     {
@@ -266,10 +252,6 @@ biorthonormal..."
   delete transferSpec;
   delete transferOp;
   freeConfig();
-  if (initDist)
-    gsl_vector_free(initDist);
-  if (finalDist)
-    gsl_vector_free(finalDist);
   
   //return 0;
 }
