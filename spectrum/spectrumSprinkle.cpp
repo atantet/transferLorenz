@@ -239,21 +239,21 @@ biorthonormal..."
 	{
 	  std::cout << "Writing forward eigenvalues and eigenvectors..."
 		    << std::endl;
-	  // transferSpec->writeSpectrumForward(EigValForwardFileName,
-	  // 				     EigVecForwardFileName,
-	  // 				     fileFormat);
-	  transferSpec->writeEigValForward(EigValForwardFileName,
-					   fileFormat);
+	  transferSpec->writeSpectrumForward(EigValForwardFileName,
+	  				     EigVecForwardFileName,
+	  				     fileFormat);
+	  //transferSpec->writeEigValForward(EigValForwardFileName,
+	  //fileFormat);
 	}
       if (getBackwardEigenvectors)
 	{
 	  std::cout << "Writing backward eigenvalues and eigenvectors..."
 		    << std::endl;
-	  // transferSpec->writeSpectrumBackward(EigValBackwardFileName,
-	  // 				      EigVecBackwardFileName,
-	  // 				      fileFormat);
-	  transferSpec->writeEigValBackward(EigValBackwardFileName,
-					    fileFormat);
+	  transferSpec->writeSpectrumBackward(EigValBackwardFileName,
+	  				      EigVecBackwardFileName,
+	  				      fileFormat);
+	  // transferSpec->writeEigValBackward(EigValBackwardFileName,
+	  // 				    fileFormat);
 	}
     }
   catch (std::exception &ex)
@@ -271,5 +271,5 @@ biorthonormal..."
   if (finalDist)
     gsl_vector_free(finalDist);
   
-return 0;
+  //return 0;
 }
