@@ -15,6 +15,7 @@
 #include <transferOperator.hpp>
 #include <gsl_extension.hpp>
 #include "../cfg/readConfig.hpp"
+#include <omp.h>
 
 
 /** \file transfer.cpp
@@ -119,14 +120,6 @@ int main(int argc, char * argv[])
   // Get lag
   const double tau = gsl_vector_get(tauRng, 0);
 
-  // Set random number generator
-  gsl_rng * r = gsl_rng_alloc(gsl_rng_ranlxs1);
-  // Get seed and set random number generator
-  size_t seed = gsl_vector_uint_get(seedRng, 0);
-  printf("Setting random number generator with seed: %d\n", (int) seed);
-  gsl_rng_set(r, seed);
-
-  
   ///
   /// Get grid membership matrix
   ///
@@ -172,6 +165,11 @@ int main(int argc, char * argv[])
     // Define model (the initial state will be assigned later)
     model *mod = new model(field, scheme);
 
+    // Set random number generator
+    gsl_rng * r = gsl_rng_alloc(gsl_rng_ranlxs1);
+    // Get seed and set random number generator
+    gsl_rng_set(r, omp_get_thread_num());
+  
     // Srinkle box by box
 #pragma omp for
     for (size_t box0 = 0; box0 < N; box0++)
@@ -183,6 +181,7 @@ int main(int argc, char * argv[])
 	    {
 	      std::cout << "Getting transitions from box " << box0 << " of " << N-1
 			<< std::endl;
+	      std::cout.flush();
 	    }
 	  }
 	
@@ -221,7 +220,7 @@ int main(int argc, char * argv[])
 	    boxf = grid->getBoxMembership(mod->current);
 
 	    // Add transition
-	    gsl_vector_uint_set(boxMem, traj, boxf);	    
+	    gsl_vector_uint_set(boxMem, traj, boxf);
 	  }
 
 	// Save all transitions of box in grid membership matrix
@@ -237,6 +236,7 @@ int main(int argc, char * argv[])
     gsl_vector_uint_free(boxMem);
     gsl_vector_free(minBox);
     gsl_vector_free(maxBox);
+    gsl_rng_free(r);
     delete mod;
     delete scheme;
     delete field;
