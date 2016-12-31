@@ -45,8 +45,36 @@ int main(int argc, char * argv[])
     }
   try
    {
-     readConfig(configFileName);
+     Config cfg;
+     std::cout << "Sparsing config file " << configFileName << std::endl;
+     cfg.readFile(configFileName);
+     readGeneral(&cfg);
+     readModel(&cfg);
+     readSimulation(&cfg);
+     readContinuation(&cfg);
+     std::cout << "Sparsing success.\n" << std::endl;
     }
+  catch(const SettingTypeException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " type exception." << std::endl;
+    throw ex;
+  }
+  catch(const SettingNotFoundException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " not found." << std::endl;
+    throw ex;
+  }
+  catch(const SettingNameException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " name exception." << std::endl;
+    throw ex;
+  }
+  catch(const ParseException &ex) {
+    std::cerr << "Parse error at " << ex.getFile() << ":" << ex.getLine()
+              << " - " << ex.getError() << std::endl;
+    throw ex;
+  }
+  catch(const FileIOException &ex) {
+    std::cerr << "I/O error while reading configuration file." << std::endl;
+    throw ex;
+  }
   catch (...)
     {
       std::cerr << "Error reading configuration file" << std::endl;
@@ -59,7 +87,8 @@ int main(int argc, char * argv[])
   gsl_matrix_complex *FloquetVec = gsl_matrix_complex_alloc(dim, dim);
   gsl_eigen_nonsymmv_workspace *w = gsl_eigen_nonsymmv_alloc(dim);
   gsl_matrix_view fm;
-  char dstFileName[256], dstFileNameVec[256], dstFileNameExp[256], dstPostfix[256];
+  char dstFileName[256], dstFileNameVec[256], dstFileNameExp[256],
+    srcPostfix[256], dstPostfix[256];
   FILE *dstStream, *dstStreamVec, *dstStreamExp;
 
 
@@ -68,6 +97,7 @@ int main(int argc, char * argv[])
   double sign = contStep / contAbs;
   double exp = gsl_sf_log(contAbs)/gsl_sf_log(10);
   double mantis = sign * gsl_sf_exp(gsl_sf_log(contAbs) / exp);
+  sprintf(srcPostfix, "_%s", caseName);
   sprintf(dstPostfix, "%s_cont%04d_contStep%de%d_dt%d_numShoot%d", srcPostfix,
 	  (int) (gsl_vector_get(initCont, dim) * 1000 + 0.1),
 	  (int) (mantis*1.01), (int) (exp*1.01),
@@ -227,7 +257,6 @@ int main(int argc, char * argv[])
   delete Jacobian;
   delete field;
   gsl_matrix_free(solFM);
-  gsl_vector_free(initCont);
   fclose(dstStreamExp);
   fclose(dstStreamVec);
   fclose(dstStream);  

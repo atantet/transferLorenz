@@ -72,8 +72,8 @@ if (hasattr(cfg.model, 'delaysDays')):
 # List of continuations to plot
 initContRng = [[7.956126, 7.956126, 24.737477, 24.5, 0.652822],
                [10.33683, 6.022949, 23.479173, 15.477484, 1.415303]]
-contStepRng = [0.01, -0.001]
-dtRng = [1.e-5, 1.e-5]
+contStepRng = [0.01, -0.001, -0.0001]
+dtRng = [1.e-5]*3
 nCont = len(initContRng)
 
 srcPostfix = "_%s%s" % (caseName, delayName)
@@ -103,7 +103,7 @@ for k in np.arange(nCont):
     initCont = initContRng[k]
     contStep = contStepRng[k]
     
-    contAbs = sqrt(contStep*contStep)
+    contAbs = np.sqrt(contStep*contStep)
     sign = contStep / contAbs
     exp = np.log10(contAbs)
     mantis = sign * np.exp(np.log(contAbs) / exp)
@@ -191,7 +191,7 @@ dist = []
 for k in np.arange(len(initContRngFP)):
     initContFP = initContRngFP[k]
     contStepFP = contStepRngFP[k]
-    contAbs = sqrt(contStepFP*contStepFP)
+    contAbs = np.sqrt(contStepFP*contStepFP)
     sign = contStepFP / contAbs
     exp = np.log10(contAbs)
     mantis = sign * np.exp(np.log(contAbs) / exp)
@@ -215,8 +215,8 @@ for k in np.arange(len(initContRngFP)):
     plt.plot(fp[~isStable, 0] + fp[~isStable, 1], fp[~isStable, 2], '--k',
              linewidth=2)
 
-sampOrbitRng = [100, 2000]
-sampInit = [0, 0]
+sampOrbitRng = [100, 2000, 10000]
+sampInit = [0, contL[1].shape[0]]
 for k in np.arange(nCont):
     sampOrbit = sampOrbitRng[k]
     po = poL[k]
@@ -260,16 +260,14 @@ for k in np.arange(nCont):
         ls = '-'
     else:
         ls = '--'
-    #plt.plot(xt[:, 0] + xt[:, 2], xt[:, 1], xt[:, 3], linestyle=ls, linewidth=2)
-    #plt.plot(xt[:, 0], xt[:, 1], xt[:, 2], color='b',
-    #         linestyle=ls, linewidth=2)
+    plt.plot(xt[:, 0] + xt[:, 1], xt[:, 2], linestyle=ls, linewidth=2)
 
 # Homoclinic orbit
 print 'Propagating homoclinic orbit.'
 Th = T
-nt = int(np.ceil(Th*3. / cfg.simulation.dt))
+nt = int(np.ceil(Th / cfg.simulation.dt * 3.))
 # propagate
-p = [cont-0.180099, cfg.model.sigma, cfg.model.beta]
+p = [cont-0.1791603, cfg.model.sigma, cfg.model.beta]
 #x0 = xt[-1]
 #x0[2] += 0.1
 #x0 = np.array([ 0.152511, 0.25898653, 0.49468841])
