@@ -145,9 +145,10 @@ int main(int argc, char * argv[])
   transferOp = new transferOperator(N, stationary);
 
   // Get transition count triplets
+  const size_t nTrajAlloc = nTraj / 10;
   std::cout << "Allocating transition count matrix for "
-	    << nTraj << " transitions" << std::endl;
-  if (!(T = gsl_spmatrix_alloc_nzmax(N, N, nTraj, GSL_SPMATRIX_TRIPLET)))
+	    << nTrajAlloc << " transitions" << std::endl;
+  if (!(T = gsl_spmatrix_alloc_nzmax(N, N, nTrajAlloc, GSL_SPMATRIX_TRIPLET)))
     {
       fprintf(stderr, "Error allocating triplet count matrix.\n");
       std::bad_alloc();
