@@ -13,7 +13,7 @@ LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
 
 #EXE=spectrum
-EXE=spectrumSprinkle
+#EXE=spectrumSprinkle
 
 all:$(EXE).out
 	mkdir -p ../results/spectrum/eigval

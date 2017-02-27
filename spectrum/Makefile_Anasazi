@@ -1,0 +1,40 @@
+# Import trilinos variables
+include $(TRILINOS_BUILD)/Makefile.export.Trilinos
+
+TRILINOS_LIB=-llocathyra -llocaepetra -llocalapack -lloca -lnoxepetra -lnoxlapack -lnox -lteko -lstratimikos -lstratimikosbelos -lstratimikosaztecoo -lstratimikosamesos -lstratimikosml -lstratimikosifpack -lifpack2-adapters -lifpack2 -lanasazitpetra -lModeLaplace -lanasaziepetra -lanasazi -lkomplex -lamesos2 -lbelostpetra -lbelosepetra -lbelos -lml -lifpack -lzoltan2 -lpamgen_extras -lpamgen -lamesos -lgaleri-xpetra -lgaleri-epetra -laztecoo -ldpliris -lisorropia -lxpetra-sup -lxpetra -lthyratpetra -lthyraepetraext -lthyraepetra -lthyracore -lthyratpetra -lthyraepetraext -lthyraepetra -lthyracore -lepetraext -ltpetraext -ltpetrainout -ltpetra -lkokkostsqr -ltpetrakernels -ltpetraclassiclinalg -ltpetraclassicnodeapi -ltpetraclassic -ltpetraext -ltpetrainout -ltpetra -lkokkostsqr -ltpetrakernels -ltpetraclassiclinalg -ltpetraclassicnodeapi -ltpetraclassic -ltriutils -lzoltan -lsimpi -lepetra -lrtop -lteuchoskokkoscomm -lteuchoskokkoscompat -lteuchosremainder -lteuchosnumerics -lteuchoscomm -lteuchosparameterlist -lteuchoscore -lteuchoskokkoscomm -lteuchoskokkoscompat -lteuchosremainder -lteuchosnumerics -lteuchoscomm -lteuchosparameterlist -lteuchoscore -lkokkosalgorithms -lkokkoscontainers -lkokkoscore -lkokkosalgorithms -lkokkoscontainers -lkokkoscore
+
+LIBS=-lgsl -lconfig++ -lergopack -lopenblas $(TRILINOS_LIB)
+CONFIG=../cfg/readConfig
+
+#CC=g++
+CC=$(Trilinos_CXX_COMPILER)
+#WARN=-Wall -Wformat=0
+#CFLAGS=$(WARN) -pedantic-errors -O3
+CFLAGS=$(Trilinos_CXX_COMPILER_FLAGS) 
+LDFLAGSSTD=-undefined dynamic_lookup
+LDFLAGSGDB=$(LDFLAGSSTD) -gdb
+
+LDFLAGS=$(LDFLAGSSTD)
+#LDFLAGS=$(LDFLAGSGDB)
+
+EXE=spectrumAnasazi
+
+all:$(EXE).out
+	mkdir -p ../results/spectrum/eigval
+	mkdir -p ../results/spectrum/eigvec
+	mkdir -p ../results/spectrum/conditionNumbers
+
+$(EXE).o:$(EXE).cpp 
+	$(CC) -c $(CFLAGS) -o $@ $<
+
+$(CONFIG).o:$(CONFIG).cpp
+	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
+
+$(EXE).out:$(EXE).o $(CONFIG).o
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIBDIR) $(LIBS)
+
+clean:
+	rm -f $(EXE).o $(EXE).out
+
+cleanall:
+	rm -f $(EXE).o $(CONFIG).o $(EXE).out

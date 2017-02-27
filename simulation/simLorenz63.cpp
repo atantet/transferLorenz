@@ -83,15 +83,16 @@ int main(int argc, char * argv[])
       gsl_rng_set(r, seed);
 
       // Define names and open destination file
-      sprintf(dstPostfix, "%s_L%d_spinup%d_dt%d_samp%d", srcPostfixModel, (int) L,
-	      (int) spinup, (int) (round(-gsl_sf_log(dt)/gsl_sf_log(10)) + 0.1),
+      sprintf(dstPostfix, "%s_L%d_spinup%d_dt%d_samp%d", srcPostfixModel,
+	      (int) L, (int) spinup,
+	      (int) (round(-gsl_sf_log(dt)/gsl_sf_log(10)) + 0.1),
 	      (int) printStepNum);
       sprintf(dstFileName, "%s/simulation/sim%s_seed%d.%s",
 	      resDir, dstPostfix, (int) seed, fileFormat);
       if (!(dstStream = fopen(dstFileName, "w")))
 	{
-	  std::cerr << "Can't open " << dstFileName << " for writing simulation: "
-		    << std::endl;;
+	  std::cerr << "Can't open " << dstFileName
+		    << " for writing simulation: " << std::endl;;
 	  perror("");
 	  return EXIT_FAILURE;
 	}

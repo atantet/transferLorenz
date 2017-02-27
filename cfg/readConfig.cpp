@@ -169,7 +169,8 @@ readContinuation(const Config *cfg)
       std::cout << "]" << std::endl;
     }
   else
-    std::cout << "Continuation configuration section does not exist." << std::endl;
+    std::cout << "Continuation configuration section does not exist."
+	      << std::endl;
     
   return;
 }
@@ -190,7 +191,8 @@ readSimulation(const Config *cfg)
       // Initial state
       if (cfg->exists("simulation.initState"))
 	{
-	  const Setting &initStateSetting = cfg->lookup("simulation.initState");
+	  const Setting &initStateSetting =
+	    cfg->lookup("simulation.initState");
 	  initState = gsl_vector_alloc(dim);
 	  std::cout << "initState = [";
 	  for (size_t i =0; i < (size_t) (initStateSetting.getLength()); i++)
@@ -223,10 +225,12 @@ readSimulation(const Config *cfg)
 
       L = LCut + spinup;
       printStepNum = (size_t) (printStep / dt + 0.1);
-      nt0 = (size_t) (LCut / printStep + 0.1 + 1.); // Add 1 for the initial state
+      nt0 = (size_t) (LCut / printStep + 0.1 + 1.);
+      // Add 1 for the initial state
     }
   else
-    std::cout << "Simulation configuration section does not exist." << std::endl;
+    std::cout << "Simulation configuration section does not exist."
+	      << std::endl;
 
   return;
 }
@@ -250,7 +254,8 @@ readSprinkle(const Config *cfg)
       std::cout << "nTraj = " << nTraj << std::endl;
 
       // Min value of state
-      const Setting &minInitStateSetting = cfg->lookup("sprinkle.minInitState");
+      const Setting &minInitStateSetting =
+	cfg->lookup("sprinkle.minInitState");
       minInitState = gsl_vector_alloc(dim);
       std::cout << "minInitState = {";
       for (size_t d = 0; d < (size_t) dim; d++) {
@@ -260,7 +265,8 @@ readSprinkle(const Config *cfg)
       std::cout << "}" << std::endl;
 
       // Max value of state
-      const Setting &maxInitStateSetting = cfg->lookup("sprinkle.maxInitState");
+      const Setting &maxInitStateSetting =
+	cfg->lookup("sprinkle.maxInitState");
       maxInitState = gsl_vector_alloc(dim);
       std::cout << "maxInitState = {";
       for (size_t d = 0; d < (size_t) dim; d++) {
@@ -299,7 +305,8 @@ readSprinkle(const Config *cfg)
 	}
     }
   else
-    std::cout << "Sprinkle configuration section does not exist." << std::endl;
+    std::cout << "Sprinkle configuration section does not exist."
+	      << std::endl;
     
    return;
 }
@@ -352,7 +359,8 @@ readObservable(const Config *cfg)
     {
       dimObs = dim;
       embedMax = 0;
-      std::cout << "Observable configuration section does not exist." << std::endl;
+      std::cout << "Observable configuration section does not exist."
+		<< std::endl;
     }
   nt = nt0 - embedMax;			    
     
@@ -386,14 +394,17 @@ readGrid(const Config *cfg)
 	}
     
       // Grid limits type
-      strcpy(gridLimitsType, (const char *) cfg->lookup("grid.gridLimitsType"));
+      strcpy(gridLimitsType, (const char *)
+	     cfg->lookup("grid.gridLimitsType"));
       std::cout << "Grid limits type: " << gridLimitsType << std::endl;
 
       // Grid limits
       if (cfg->exists("grid.gridLimits"))
 	{
-	  const Setting &gridLimitsLowSetting = cfg->lookup("grid.gridLimitsLow");
-	  const Setting &gridLimitsUpSetting = cfg->lookup("grid.gridLimitsUp");
+	  const Setting &gridLimitsLowSetting
+	    = cfg->lookup("grid.gridLimitsLow");
+	  const Setting &gridLimitsUpSetting
+	    = cfg->lookup("grid.gridLimitsUp");
 	  gridLimitsLow = gsl_vector_alloc(dimObs);
 	  gridLimitsUp = gsl_vector_alloc(dimObs);
 	  std::cout << "Grid limits (low, high):" << std::endl;
@@ -403,7 +414,8 @@ readGrid(const Config *cfg)
 	      gsl_vector_set(gridLimitsUp, d, gridLimitsUpSetting[d]);
 	      std::cout << "dim " << d+1 << ": ("
 			<< gsl_vector_get(gridLimitsLow, d) << ", "
-			<< gsl_vector_get(gridLimitsUp, d) << ")" << std::endl;
+			<< gsl_vector_get(gridLimitsUp, d) << ")"
+			<< std::endl;
 	    }
 	}
       else
@@ -418,7 +430,8 @@ readGrid(const Config *cfg)
 	    {
 	      std::cout << "dim " << d+1 << ": ("
 			<< gsl_vector_get(gridLimitsLow, d) << ", "
-			<< gsl_vector_get(gridLimitsUp, d) << ")" << std::endl;
+			<< gsl_vector_get(gridLimitsUp, d) << ")"
+			<< std::endl;
 	    }
 	}
     
@@ -450,7 +463,8 @@ readGrid(const Config *cfg)
       strcpy(cpyBuffer, gridPostfix);    
     }
   else
-    std::cout << "Grid configuration section does not exist." << std::endl;
+    std::cout << "Grid configuration section does not exist."
+	      << std::endl;
 
 
   return;
@@ -483,7 +497,8 @@ readTransfer(const Config *cfg)
       std::cout << "Is stationary: " << stationary << std::endl;
     }
   else
-    std::cout << "Transfer configuration section does not exist." << std::endl;
+    std::cout << "Transfer configuration section does not exist."
+	      << std::endl;
 
   return;
 }
@@ -535,11 +550,13 @@ readSpectrum(const Config *cfg)
 
       if (cfg->exists("spectrum.getForwardEigenvectors"))
 	{
-	  getForwardEigenvectors = cfg->lookup("spectrum.getForwardEigenvectors");
+	  getForwardEigenvectors =
+	    cfg->lookup("spectrum.getForwardEigenvectors");
 	}
       if (cfg->exists("spectrum.getBackwardEigenvectors"))
 	{
-	  getBackwardEigenvectors = cfg->lookup("spectrum.getBackwardEigenvectors");
+	  getBackwardEigenvectors =
+	    cfg->lookup("spectrum.getBackwardEigenvectors");
 	}
       if (cfg->exists("spectrum.makeBiorthonormal"))
 	{
@@ -547,7 +564,8 @@ readSpectrum(const Config *cfg)
 	}
     }
     else
-      std::cout << "Spectrum configuration section does not exist." << std::endl;
+      std::cout << "Spectrum configuration section does not exist."
+		<< std::endl;
 
     return;
 }
