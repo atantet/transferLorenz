@@ -118,56 +118,62 @@ for t in np.arange(1, contRng.shape[0]):
 
 isStable = np.max(FloquetExp.real, 1) < 1.e-6
 
-#contSelRng = np.arange(24.1, 24.751, 0.05)
-contSelRng = np.arange(24.3, 24.751, 0.05)
+contSelRng = np.arange(24.1, 24.751, 0.05)
+#contSelRng = np.arange(24.3, 24.751, 0.05)
 contSelRng[-1] = contRng.max()
 dt = 1.e-3
+readDist = True
 
 distRng = np.empty((contSelRng.shape[0],))
 L = 1000000
 samp = 10
 #L = 100
 #samp = 1
-f = open('%s/continuation/distChaosPeriodic%s.txt' \
-         % (plotDir, dstPostfix), 'a')
 
-for icont in np.arange(contSelRng.shape[0]):
-    cont = contSelRng[icont]
-    t = np.argmin((cont - contRng)**2)
-    cont = contRng[t]
-    T = TRng[t] * L
-    print 'Propagating attractor orbit for ', T, ' at rho = ', cont, \
-        ' from x(0) = ', po[t]
+if readDist:
+    distRng = np.loadtxt('%s/continuation/distChaosPeriodic%s.txt' \
+                         % (plotDir, dstPostfix))
+else:
+    f = open('%s/continuation/distChaosPeriodic%s.txt' \
+             % (plotDir, dstPostfix), 'a')
 
-    nt = int(np.ceil(T / dt))
-    # Propagate aperiodic orbit
-    p = [cont, cfg.model.sigma, cfg.model.beta]
-    xtA = np.empty((nt / samp + 1, dim))
-    propagateRK4(po[t] + 5, field, p, xtA, dt, nt, samp=samp)    
+    for icont in np.arange(contSelRng.shape[0]):
+        cont = contSelRng[icont]
+        t = np.argmin((cont - contRng)**2)
+        cont = contRng[t]
+        T = TRng[t] * L
+        print 'Propagating attractor orbit for ', T, ' at rho = ', cont, \
+            ' from x(0) = ', po[t]
 
-    # Remove spinup of a tenth
-    xtA = xtA[nt/samp/ 10:-1]
-    
-    # Propagate periodic orbit
-    T = TRng[t]
-    print 'Propagating orbit of period ', T, ' at cont = ', cont, \
-        ' from x(0) = ', po[t]
-    nt = int(np.ceil(T / dt))
-    p = [cont, cfg.model.sigma, cfg.model.beta]
-    xt = np.empty((nt + 1, dim))
-    propagateRK4(po[t], field, p, xt, dt, nt)
-    xt = xt[:-1]
+        nt = int(np.ceil(T / dt))
+        # Propagate aperiodic orbit
+        p = [cont, cfg.model.sigma, cfg.model.beta]
+        xtA = np.empty((nt / samp + 1, dim))
+        propagateRK4(po[t] + 5, field, p, xtA, dt, nt, samp=samp)    
+        
+        # Remove spinup of a tenth
+        xtA = xtA[nt/samp/ 10:-1]
+        
+        # Propagate periodic orbit
+        T = TRng[t]
+        print 'Propagating orbit of period ', T, ' at cont = ', cont, \
+            ' from x(0) = ', po[t]
+        nt = int(np.ceil(T / dt))
+        p = [cont, cfg.model.sigma, cfg.model.beta]
+        xt = np.empty((nt + 1, dim))
+        propagateRK4(po[t], field, p, xt, dt, nt)
+        xt = xt[:-1]
 
-    # Find minimum distance between two orbits
-    print 'Getting minimum distance...'
-    minDist = np.empty((xt.shape[0],))
-    for k in np.arange(xt.shape[0]):
-        x = np.tile(xt[k], (xtA.shape[0], 1))
-        minDist[k] = np.min(np.sqrt(np.sum((xtA - x)**2, 1)))
-    distRng[icont] = np.min(minDist)
-    f.write(str(distRng[icont]) + '\n')
-    f.flush()
-f.close()
+        # Find minimum distance between two orbits
+        print 'Getting minimum distance...'
+        minDist = np.empty((xt.shape[0],))
+        for k in np.arange(xt.shape[0]):
+            x = np.tile(xt[k], (xtA.shape[0], 1))
+            minDist[k] = np.min(np.sqrt(np.sum((xtA - x)**2, 1)))
+        distRng[icont] = np.min(minDist)
+        f.write(str(distRng[icont]) + '\n')
+        f.flush()
+    f.close()
 
 xticks = np.arange(24.1, 24.71, 0.1)
 (xticks[0], xticks[-1]) = (24.06, 24.74)

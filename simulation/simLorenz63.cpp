@@ -111,7 +111,7 @@ int main(int argc, char * argv[])
 
       // Numerical integration
       std::cout << "Integrating simulation..." << std::endl;
-      mod->integrateForward(initState, L, dt, spinup, printStepNum, &X);
+      mod->integrate(initState, L, dt, spinup, printStepNum, &X);
 
       // Write results
       std::cout << "Writing..." << std::endl;

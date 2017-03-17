@@ -183,8 +183,8 @@ int main(int argc, char * argv[])
 	  {
 #pragma omp critical
 	    {
-	      std::cout << "Getting transitions from box " << box0 << " of " << N-1
-			<< std::endl;
+	      std::cout << "Getting transitions from box " << box0
+			<< " of " << N-1 << std::endl;
 	    }
 	  }
 	
@@ -199,7 +199,8 @@ int main(int argc, char * argv[])
 	    // Get upper limit of box0 for dim d from grid bounds
 	    gsl_vector_set(maxBox, d,
 			   gsl_vector_get(grid->bounds->at(d),
-					  gsl_vector_uint_get(multiIdx, d) + 1));
+					  gsl_vector_uint_get(multiIdx, d)
+					  + 1));
 	  }
 
 	// Simulate trajecories from uniformly sampled initial conditions in box
@@ -210,13 +211,15 @@ int main(int argc, char * argv[])
 	      gsl_vector_set(IC, d, gsl_ran_flat(r, gsl_vector_get(minBox, d),
 						 gsl_vector_get(maxBox, d)));
 
-	    // Convert initial condition from spherical to Cartesian coordinates
+	    // Convert initial condition from spherical
+	    // to Cartesian coordinates
 	    sphere2Cart(IC);
 
 	    // Numerical integration
-	    mod->integrateForward(IC, tau, dt);
+	    mod->integrate(IC, tau, dt);
 
-	    // Convert final state from Cartesian to adapted spherical coordinates
+	    // Convert final state from Cartesian
+	    // to adapted spherical coordinates
 	    cart2Sphere(mod->current);
 
 	    // Get box of final state
@@ -232,7 +235,8 @@ int main(int argc, char * argv[])
 	  // Copy final box from box0 to grid membership matrix
 	  for (size_t traj = 0; traj < (size_t) nTrajPerBox; traj++)
 	    nIn += transferOp->addTransition(T, box0,
-					     gsl_vector_uint_get(boxMem, traj));
+					     gsl_vector_uint_get(boxMem,
+								 traj));
 	}
       }
     gsl_vector_free(IC);
@@ -244,7 +248,8 @@ int main(int argc, char * argv[])
     delete field;
   }
   std::cout <<  nIn * 100. / nTraj
-	    << "% of the trajectories ended up inside the domain." << std::endl;
+	    << "% of the trajectories ended up inside the domain."
+	    << std::endl;
   
   /** Build transition matrices */
   transferOp->buildFromTransitionCount(T, nTraj);
