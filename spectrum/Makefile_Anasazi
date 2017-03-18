@@ -3,11 +3,12 @@ include $(TRILINOS_BUILD)/Makefile.export.Trilinos_install
 
 TRILINOS_LIB=-lanasaziepetra -lanasazi -lepetraext -lepetra -lteuchosremainder -lteuchosnumerics -lteuchoscomm -lteuchosparameterlist -lteuchoscore 
 
-LIBS=-lgsl -lconfig++ -lergopack -lopenblas $(TRILINOS_LIB)
+LIBS=-lgsl -lconfig++ -lergopack -lopenblas -lgomp $(TRILINOS_LIB)
 CONFIG=../cfg/readConfig
 
 #CC=g++
-CC=$(Trilinos_CXX_COMPILER)
+CXX=$(Trilinos_CXX_COMPILER)
+OMPFLAGS=-fopenmp
 #WARN=-Wall -Wformat=0
 #CFLAGS=$(WARN) -pedantic-errors -O3
 CFLAGS=$(Trilinos_CXX_COMPILER_FLAGS) 
@@ -26,13 +27,13 @@ all:$(EXE).out
 	mkdir -p ../results/spectrum/conditionNumbers
 
 $(EXE).o:$(EXE).cpp 
-	$(CC) -c $(CFLAGS) -o $@ $<
+	$(CXX) $(OMPFLAGS) -c $(CFLAGS) -o $@ $<
 
 $(CONFIG).o:$(CONFIG).cpp
-	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<
+	$(CXX) $(OMPFLAGS) -c $(CFLAGS) $(INCDIR) -o $@ $<
 
 $(EXE).out:$(EXE).o $(CONFIG).o
-	$(CC) $(LDFLAGS) -o $@ $^ $(LIBDIR) $(LIBS)
+	$(CXX) $(OMPFLAGS) $(LDFLAGS) -o $@ $^ $(LIBDIR) $(LIBS)
 
 clean:
 	rm -f $(EXE).o $(EXE).out

@@ -65,9 +65,8 @@ void cart2Sphere(gsl_vector *x);
 int getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
 	    const double dt);
 /** \brief Get box boundaries. */
-void getBoxBoundaries(size_t box0, gsl_vector_uint *nx,
-		      gsl_vector_uint *multiIdx, Grid *grid,
-		      gsl_vector *minBox, gsl_vector *maxBox);
+void getBoxBoundaries(const size_t box0, const gsl_vector_uint *nx,
+		      const Grid *grid, gsl_vector *minBox, gsl_vector *maxBox);
 
 
 /** \brief Calculate transfer operators from time series.
@@ -165,11 +164,15 @@ int main(int argc, char * argv[])
     // Create an Anasazi output manager
     Anasazi::BasicOutputManager<ScalarType> printer;
 
-    // Grid declarations
-    const double tau = gsl_vector_get(tauRng, 0);
-    const int nTrajPerBox = nTraj / N;
-    size_t nIn, nTot, boxf, traj;
+    // Scale the number of trajectories with the number of processors
+    const size_t nTrajPerProc = nTraj;
+    const int nTrajPerBox = nTrajPerProc / N * NumProc;
+    size_t nIn = 0;
+    size_t nTot = 0;
 
+    // Transition step
+    const double tau = gsl_vector_get(tauRng, 0);
+    
     // Eigen problem
     char EigValForwardFileName[256], EigVecForwardFileName[256];
 
@@ -187,10 +190,10 @@ int main(int argc, char * argv[])
     sprintf(srcPostfix, "_%s", caseName);
     sprintf(gridFileName, "%s/grid/grid%s%s.txt", resDir, srcPostfix,
 	    gridPostfix);
-    sprintf(dstGridPostfix, "%s%s_rho%04d_L%d_dt%d_nTraj%d",
+    sprintf(dstGridPostfix, "%s%s_rho%04d_L%d_dt%d_nTraj%d_nProc%d",
 	    srcPostfix, gridPostfix, (int) (rho * 100 + 0.1),
 	    (int) (tau * 1000),
-	    (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)+0.1), nTraj);
+	    (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)+0.1), nTraj, NumProc);
     sprintf(postfix, "%s", dstGridPostfix);
     sprintf(EigValForwardFileName,
 	    "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
@@ -228,28 +231,7 @@ int main(int argc, char * argv[])
     Teuchos::RCP<Anasazi::SortManager<MagnitudeType> > MySort =
       Teuchos::rcp( new Anasazi::BasicSort<MagnitudeType>( which ) );
 
-    // Storage for this processor's nonzeros.
-    const int localsize = nTrajPerBox;
-    int *jv = (int *) malloc(localsize * sizeof(int));
-    double *vv = (double *) malloc(localsize * sizeof(double));
-    
-    // Initial condition and final box membership per initial box
-    gsl_vector *IC = gsl_vector_alloc(dim);
-    gsl_vector_uint *multiIdx = gsl_vector_uint_alloc(dim);
-    gsl_vector *minBox = gsl_vector_alloc(dim);
-    gsl_vector *maxBox = gsl_vector_alloc(dim);
-    
-    // Define field
-    vectorField *field = new Lorenz63(rho, sigma, beta);
-    // Define numerical scheme
-    numericalScheme *scheme = new RungeKutta4(dim);
-    // Define model (the initial state will be assigned later)
-    model *mod = new model(field, scheme);
-
-
-    /**
-     * BUILD TRANSITION MATRIX
-     */
+    // Epetra timer
     Epetra_Time timer(Comm);
 
     // Construct with StaticProfile=true since we know numNonzerosPerRow.
@@ -257,50 +239,96 @@ int main(int argc, char * argv[])
     Epetra_CrsMatrix *P
       = new Epetra_CrsMatrix(Copy, rowMap, nTrajPerBox, true);
     
-    // Srinkle box by box
     if (MyPID == 0)
-      std::cout << "\nConstructing transfer matrix for a lag of "
-		<< tau << std::endl;
+      std::cout << "\nConstructing transition matrix for a lag of "
+		<< tau << " from " << nTrajPerProc
+		<< " trajectories for each process out of "
+		<< NumProc << std::endl;
 
-    nIn = 0;
-    for (size_t box0 = 0; box0 < N; box0++) {
-      if (rowMap.MyGID((int) box0)) {
-	// Verbose
-	if (box0 % (N / 100) == 0)
-	  std::cout << "Getting transitions from box " << box0
-		    << " of " << N-1 << " by " << MyPID << std::endl;
-	
-	// Get boundaries of box
-	getBoxBoundaries(box0, nx, multiIdx, grid, minBox, maxBox);
+#pragma omp parallel
+    {
+      // Storage for this processor's nonzeros.
+      int *jv = (int *) malloc(nTrajPerBox * sizeof(int));
+      double *vv = (double *) malloc(nTrajPerBox * sizeof(double));
+      size_t boxf, traj, trajTot;
+    
+      // Initial condition and final box membership per initial box
+      gsl_vector *IC = gsl_vector_alloc(dim);
+      gsl_vector *minBox = gsl_vector_alloc(dim);
+      gsl_vector *maxBox = gsl_vector_alloc(dim);
+    
+      // Define field
+      vectorField *field = new Lorenz63(rho, sigma, beta);
+      // Define numerical scheme
+      numericalScheme *scheme = new RungeKutta4(dim);
+      // Define model (the initial state will be assigned later)
+      model *mod = new model(field, scheme);
 
-	// Simulate trajecories from uniformly sampled initial cond in box
-	traj = 0;
-	while (traj < (size_t) nTrajPerBox) {
-	  
-	  // Get random initial distribution
-	  for (size_t d = 0; d < (size_t) dim; d++)
-	    gsl_vector_set(IC, d, gsl_ran_flat(r, gsl_vector_get(minBox, d),
-					       gsl_vector_get(maxBox, d)));
-	  
-	  // Get trajectory
-	  if ((boxf = getTraj(mod, grid, IC, tau, dt)) < N) {
-	    jv[traj] = boxf;
-	    vv[traj] = 1. / nTrajPerBox;
-	    traj++;
+
+      /**
+       * BUILD TRANSITION MATRIX
+       */
+      // Srinkle box by box
+#pragma omp for
+      for (size_t box0 = 0; box0 < N; box0++) {
+	if (rowMap.MyGID((int) box0)) {
+	  // Verbose
+	  if (box0 % (N / 100) == 0) {
+#pragma omp critical
+	    {
+	      std::cout << "Getting transitions from box " << box0
+			<< " of " << N-1 << " by " << MyPID << std::endl;
+	    }
 	  }
-	  nTot++;
-	}
-	nIn += traj;
+	
+	  // Get boundaries of box
+	  getBoxBoundaries(box0, nx, grid, minBox, maxBox);
+
+	  // Simulate trajecories from uniformly sampled initial cond in box
+	  traj = 0;
+	  trajTot = 0;
+	  while (traj < (size_t) nTrajPerBox) {
+	    // Get random initial distribution
+	    for (size_t d = 0; d < (size_t) dim; d++)
+	      gsl_vector_set(IC, d, gsl_ran_flat(r, gsl_vector_get(minBox, d),
+						 gsl_vector_get(maxBox, d)));
 	  
-	// Save transitions of box0
-	int ierr;
-	if ((ierr = P->InsertGlobalValues(box0, traj, vv, jv)) < 0)
-	  EPETRA_CHK_ERR(ierr);
+	    // Get trajectory
+	    if ((boxf = getTraj(mod, grid, IC, tau, dt)) < N) {
+	      jv[traj] = boxf;
+	      vv[traj] = 1. / nTrajPerBox;
+	      traj++;
+	    }
+	    trajTot++;
+	  }
+	  
+	  // Save transitions of box0
+	  int ierr;
+#pragma omp critical
+	  {
+	    if ((ierr = P->InsertGlobalValues(box0, traj, vv, jv)) < 0) {
+	      std::cerr << "Error: inserting global values to transition matrix."
+			<< std::endl;
+	      throw std::exception();
+	    }
+	    nIn += traj;
+	    nTot += trajTot;
+	  }
+	}
       }
+      free(jv);
+      free(vv);
+      gsl_vector_free(IC);
+      gsl_vector_free(minBox);
+      gsl_vector_free(maxBox);
+      delete mod;
+      delete scheme;
+      delete field;
     }
     std::cout <<  (nTot - nIn) * 100. / nTot
 	      << "% of the trajectories ended up outside the domain for "
 	      << MyPID << std::endl;
+    
     // Finalize matrix (sum duplicates, in particular)
     EPETRA_CHK_ERR(P->FillComplete());
 
@@ -308,12 +336,14 @@ int main(int argc, char * argv[])
     double dt = timer.ElapsedTime();
     if (MyPID == 0)
       std::cout << "Transition matrix build time (secs):  " << dt << std::endl;
+    delete grid;
 
 
 
     /**
      * SOLVE EIGEN PROBLEM
      */
+    timer.ResetStartTime();
     Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcpFromRef(*P);
 
     // Create an Epetra_MultiVector for an initial vector to start the
@@ -378,7 +408,11 @@ int main(int argc, char * argv[])
     if (MyPID == 0)
       std::cout << "Found " << numev << " eigenvalues" << std::endl;
 
-
+    // Elapsed time
+    dt = timer.ElapsedTime();
+    if (MyPID == 0)
+      std::cout << "Eigenproblem solved in time (secs):  " << dt << std::endl;
+    
     /*
      * Print eigenvalues and indices
      */
@@ -401,16 +435,6 @@ int main(int argc, char * argv[])
 	  }
       }
     success = true;
-
-    free(jv);
-    free(vv);
-    gsl_vector_free(IC);
-    gsl_vector_free(minBox);
-    gsl_vector_free(maxBox);
-    delete mod;
-    delete scheme;
-    delete field;
-    delete grid;
   }
   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
 
@@ -507,10 +531,11 @@ getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
 
 
 void
-getBoxBoundaries(size_t box0, gsl_vector_uint *nx, gsl_vector_uint *multiIdx,
-		 Grid *grid, gsl_vector *minBox, gsl_vector *maxBox)
+getBoxBoundaries(const size_t box0, const gsl_vector_uint *nx, const Grid *grid,
+		 gsl_vector *minBox, gsl_vector *maxBox)
 {
   size_t dim = nx->size;
+  gsl_vector_uint *multiIdx = gsl_vector_uint_alloc(dim);
   
   unravel_index(box0, nx, multiIdx);
   for (size_t d = 0; d < dim; d++) {
@@ -524,6 +549,8 @@ getBoxBoundaries(size_t box0, gsl_vector_uint *nx, gsl_vector_uint *multiIdx,
 		   gsl_vector_get(grid->bounds->at(d),
 				  gsl_vector_uint_get(multiIdx, d) + 1));
   }
+  // Free
+  gsl_vector_uint_free(multiIdx);
   
   return;
 }
