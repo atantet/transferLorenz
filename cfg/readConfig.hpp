@@ -85,34 +85,34 @@ extern bool makeBiorthonormal;         //!< Whether to make eigenvectors biortho
 
 
 /** \brief Sparse general configuration section. */
-void readGeneral(const Config *cfg);
+void readGeneral(const Config *cfg, const bool verboseCFG);
 
 /** \brief Sparse model configuration section. */
-void readModel(const Config *cfg);
+void readModel(const Config *cfg, const bool verboseCFG);
 
 /** \brief Sparse continuation configuration section. */
-void readContinuation(const Config *cfg);
+void readContinuation(const Config *cfg, const bool verboseCFG);
 
 /** \brief Sparse simulation configuration section. */
-void readSimulation(const Config *cfg);
+void readSimulation(const Config *cfg, const bool verboseCFG);
 
 /** \brief Sparse sprinkle configuration section. */
-void readSprinkle(const Config *cfg);
+void readSprinkle(const Config *cfg, const bool verboseCFG);
 
 /** \brief Sparse observable configuration section. */
-void readObservable(const Config *cfg);
+void readObservable(const Config *cfg, const bool verboseCFG);
 
 /** \brief Sparse grid configuration section. */
-void readGrid(const Config *cfg);
+void readGrid(const Config *cfg, const bool verboseCFG);
 
 /** \brief Sparse transfer configuration section. */
-void readTransfer(const Config *cfg);
+void readTransfer(const Config *cfg, const bool verboseCFG);
 
 /** \brief Sparse spectrum configuration section. */
-void readSpectrum(const Config *cfg);
+void readSpectrum(const Config *cfg, const bool verboseCFG);
 
 /** \brief Sparse all configuration sections. */
-void readConfig(const char *cfgFileName);
+void readConfig(const char *cfgFileName, const bool verboseCFG);
 
 /**
  * Free memory allocated during configuration.

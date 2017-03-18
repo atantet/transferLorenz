@@ -32,9 +32,13 @@
 #include <Epetra_CrsMatrix.h>
 #include <Epetra_Time.h>
 #include <EpetraExt_Exception.h>
-#include "EpetraExt_Utils.h"
-// HDF5 support
-#include <EpetraExt_HDF5.h>
+#include <EpetraExt_MultiVectorOut.h>
+#include <AnasaziEpetraAdapter.hpp>
+#include <AnasaziBasicEigenproblem.hpp>
+#include <AnasaziBlockKrylovSchurSolMgr.hpp>
+#include <AnasaziBasicOutputManager.hpp>
+#include "Teuchos_LAPACK.hpp"
+#include "Teuchos_StandardCatchMacros.hpp"
 
 
 /** \file transfer.cpp
@@ -79,14 +83,24 @@ void getBoxBoundaries(size_t box0, gsl_vector_uint *nx,
  */
 int main(int argc, char * argv[])
 {
+  // Type definitions
+  typedef double ScalarType;
+  typedef Teuchos::ScalarTraits<ScalarType>          SCT;
+  typedef SCT::magnitudeType               MagnitudeType;
+  typedef Epetra_MultiVector MV;
+  typedef Epetra_Operator OP;
+  typedef Anasazi::MultiVecTraits<ScalarType, MV> MVT;
+  
 #ifdef HAVE_MPI
-    // Initialize MPI
-    MPI_Init(&argc, &argv);
-    // Create an Epetra communicator
-    Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  // Initialize MPI
+  MPI_Init(&argc, &argv);
+  // Create an Epetra communicator
+  Epetra_MpiComm Comm(MPI_COMM_WORLD);
 #else
-    Epetra_SerialComm Comm;
+  Epetra_SerialComm Comm;
 #endif
+  const int MyPID = Comm.MyPID ();
+  const int NumProc = Comm.NumProc (); 
     
   // Read configuration file
   if (argc < 2)
@@ -101,15 +115,23 @@ int main(int argc, char * argv[])
   try
     {
       Config cfg;
-      std::cout << "Sparsing config file " << configFileName << std::endl;
+      bool verboseCFG;
+      if (MyPID == 0) {
+	std::cout << "Sparsing config file " << configFileName << std::endl;
+	verboseCFG = true;
+      }
+      else
+	verboseCFG = false;
       cfg.readFile(configFileName);
-      readGeneral(&cfg);
-      readModel(&cfg);
-      readSimulation(&cfg);
-      readSprinkle(&cfg);
-      readGrid(&cfg);
-      readTransfer(&cfg);
-      std::cout << "Sparsing success.\n" << std::endl;
+      readGeneral(&cfg, verboseCFG);
+      readModel(&cfg, verboseCFG);
+      readSimulation(&cfg, verboseCFG);
+      readSprinkle(&cfg, verboseCFG);
+      readGrid(&cfg, verboseCFG);
+      readTransfer(&cfg, verboseCFG);
+      readSpectrum(&cfg, verboseCFG);
+      if (MyPID == 0)
+	std::cout << "Sparsing success.\n" << std::endl;
     }
   catch(const SettingTypeException &ex) {
     std::cerr << "Setting " << ex.getPath() << " type exception." << std::endl;
@@ -138,19 +160,29 @@ int main(int argc, char * argv[])
       return(EXIT_FAILURE);
     }
 
+  bool success = false;
   try {
-    const int MyPID = Comm.MyPID ();
-    const int NumProc = Comm.NumProc ();
-    // To check how many processes are ranb
-    std::cout << "MyPID = " << MyPID << " / " << (NumProc - 1) << std::endl;
-    
+    // Create an Anasazi output manager
+    Anasazi::BasicOutputManager<ScalarType> printer;
+
     // Grid declarations
     const double tau = gsl_vector_get(tauRng, 0);
     const int nTrajPerBox = nTraj / N;
     size_t nIn, nTot, boxf, traj;
 
+    // Eigen problem
+    char EigValForwardFileName[256], EigVecForwardFileName[256];
+
+    // Eigen solver configuration
+    std::string which ("LM");
+    int blockSize = 1;
+    int numBlocks = nev * 6;
+    int numRestarts = 100;
+    // Size of matrix nx*nx
+    const int NumGlobalElements = N;
+
     // Transfer operator declarations
-    char forwardTransitionFileName[256], postfix[256];
+    char postfix[256];
     char srcPostfix[256], dstGridPostfix[256], gridFileName[256];
     sprintf(srcPostfix, "_%s", caseName);
     sprintf(gridFileName, "%s/grid/grid%s%s.txt", resDir, srcPostfix,
@@ -160,14 +192,13 @@ int main(int argc, char * argv[])
 	    (int) (tau * 1000),
 	    (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)+0.1), nTraj);
     sprintf(postfix, "%s", dstGridPostfix);
-    sprintf(forwardTransitionFileName,
-	    "%s/transfer/forwardTransition/forwardTransition%s.h5",
-	    resDir, postfix);
+    sprintf(EigValForwardFileName,
+	    "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
+	    resDir, nev, postfix, fileFormat);
+    sprintf(EigVecForwardFileName,
+	    "%s/spectrum/eigval/eigvecBackward_nev%d%s.%s",
+	    resDir, nev, postfix, fileFormat);
 
-    // Create HDF5 file
-    EpetraExt::HDF5 HDF5(Comm);
-    HDF5.Create(forwardTransitionFileName);
-    
     // Set random number generator
     gsl_rng * r = gsl_rng_alloc(gsl_rng_ranlxs1);
     // Get seed and set random number generator
@@ -186,6 +217,17 @@ int main(int argc, char * argv[])
 		<< std::endl;
     Epetra_Map rowMap ((int) N, 0, Comm);
     
+    // Create a sort manager to pass into the block Krylov-Schur
+    // solver manager
+    // -->  Make sure the reference-counted pointer is of type
+    // Anasazi::SortManager<>
+    // -->  The block Krylov-Schur solver manager uses
+    // Anasazi::BasicSort<> by default,
+    //      so you can also pass in the parameter "Which",
+    // instead of a sort manager.
+    Teuchos::RCP<Anasazi::SortManager<MagnitudeType> > MySort =
+      Teuchos::rcp( new Anasazi::BasicSort<MagnitudeType>( which ) );
+
     // Storage for this processor's nonzeros.
     const int localsize = nTrajPerBox;
     int *jv = (int *) malloc(localsize * sizeof(int));
@@ -226,7 +268,7 @@ int main(int argc, char * argv[])
 	// Verbose
 	if (box0 % (N / 100) == 0)
 	  std::cout << "Getting transitions from box " << box0
-		    << " of " << N-1 << std::endl;
+		    << " of " << N-1 << " by " << MyPID << std::endl;
 	
 	// Get boundaries of box
 	getBoxBoundaries(box0, nx, multiIdx, grid, minBox, maxBox);
@@ -267,6 +309,99 @@ int main(int argc, char * argv[])
     if (MyPID == 0)
       std::cout << "Transition matrix build time (secs):  " << dt << std::endl;
 
+
+
+    /**
+     * SOLVE EIGEN PROBLEM
+     */
+    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcpFromRef(*P);
+
+    // Create an Epetra_MultiVector for an initial vector to start the
+    // solver.  Note: This needs to have the same number of columns as
+    // the blocksize.
+    Teuchos::RCP<Epetra_MultiVector> ivec
+      = Teuchos::rcp (new Epetra_MultiVector (rowMap, blockSize));
+    ivec->Random (); // fill the initial vector with random values
+
+
+    /** Create the eigenproblem. */
+    if (MyPID == 0)
+      std::cout << "Setting eigen problem..." << std::endl;
+    Teuchos::RCP<Anasazi::BasicEigenproblem<ScalarType, MV, OP> >
+      MyProblem = Teuchos::rcp
+      (new Anasazi::BasicEigenproblem<ScalarType, MV, OP> (A, ivec));
+
+    // Set the number of eigenvalues requested
+    MyProblem->setNEV (nev);
+
+    // Inform the eigenproblem that you are finishing passing it information
+    bool successProb = MyProblem->setProblem ();
+    if (! successProb) {
+      printer.print (Anasazi::Errors, "Anasazi::BasicEigenproblem\
+::setProblem() reported an error.\n");
+      throw -1;
+    }
+
+    // Create parameter list to pass into the solver manager
+    Teuchos::ParameterList MyPL;
+    MyPL.set( "Sort Manager", MySort );
+    MyPL.set ("Block Size", blockSize);
+    MyPL.set( "Num Blocks", numBlocks );
+    MyPL.set ("Maximum Iterations", config.maxit);
+    MyPL.set( "Maximum Restarts", numRestarts);
+    MyPL.set ("Convergence Tolerance", config.tol);
+    MyPL.set ("Orthogonalization", "TSQR");
+    MyPL.set ("Verbosity", Anasazi::Errors + Anasazi::Warnings \
+	      + Anasazi::FinalSummary);
+
+    // Create the solver manager
+    if (MyPID == 0)
+      std::cout << "Creating eigen solver..." << std::endl;
+    Teuchos::RCP<Anasazi::BlockKrylovSchurSolMgr<ScalarType, MV, OP> >
+      MySolverMan = Teuchos::rcp
+      (new Anasazi::BlockKrylovSchurSolMgr<ScalarType, MV, OP>
+       (MyProblem, MyPL));
+
+    
+    /*
+     * Solve the problem
+     */
+    if (MyPID == 0)
+      std::cout << "Solving eigen problem..." << std::endl;
+    Anasazi::ReturnType returnCode = MySolverMan->solve ();
+
+    // Get the eigenvalues and eigenvectors from the eigenproblem
+    Anasazi::Eigensolution<ScalarType, MV> sol = MyProblem->getSolution ();
+    std::vector<Anasazi::Value<ScalarType> > evals = sol.Evals;
+    std::vector<int> index = sol.index;
+    int numev = sol.numVecs;
+    if (MyPID == 0)
+      std::cout << "Found " << numev << " eigenvalues" << std::endl;
+
+
+    /*
+     * Print eigenvalues and indices
+     */
+    std::filebuf fb;
+    std::ostream os(&fb);
+    if (numev > 0)
+      {
+	fb.open (EigValForwardFileName, std::ios::out);
+	for (int ev = 0; ev < numev; ev++)
+	  os << evals[ev].realpart << "\t" << evals[ev].imagpart
+	     << "\t" << index[ev] << std::endl;
+	fb.close();
+	  
+	// Print eigenvectors
+	if (getForwardEigenvectors)
+	  {
+	    Teuchos::RCP<MV> evecs = sol.Evecs;
+	    EpetraExt::MultiVectorToMatrixMarketFile(EigVecForwardFileName,
+						     *evecs);
+	  }
+      }
+    success = true;
+
     free(jv);
     free(vv);
     gsl_vector_free(IC);
@@ -276,24 +411,11 @@ int main(int argc, char * argv[])
     delete scheme;
     delete field;
     delete grid;
-  
-    // Write forward transition matrix
-    if (MyPID == 0)
-      std::cout << "Writing forward transition matrix..."
-		<< std::endl;
-    HDF5.Write("forwardTransitionMatrix", *P);
+  }
+  TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
 
-  }
-  catch(EpetraExt::Exception& rhs) 
-  {
-    rhs.Print();
-  }
-  catch (...) 
-  {
-    std::cerr << "Caught generic std::exception" << std::endl;
-  }
 #ifdef HAVE_MPI
-    MPI_Finalize () ;
+  MPI_Finalize () ;
 #endif // HAVE_MPI
 
   // Free
@@ -363,7 +485,7 @@ cart2Sphere(gsl_vector *X)
 int
 getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
 	const double dt)
-p{
+{
   int boxf;
   
   // Convert initial condition from spherical
