@@ -62,7 +62,7 @@ void sphere2Cart(gsl_vector *x);
 /** \brief Conversion from Cartesian to spherical coordinates. */
 void cart2Sphere(gsl_vector *x);
 /** \brief Get final box of a trajectory. */
-int getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
+long long getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
 	    const double dt);
 /** \brief Get box boundaries. */
 void getBoxBoundaries(const size_t box0, const gsl_vector_uint *nx,
@@ -99,7 +99,7 @@ int main(int argc, char * argv[])
   Epetra_SerialComm Comm;
 #endif
   const int MyPID = Comm.MyPID ();
-  const int NumProc = Comm.NumProc (); 
+  const int NumProc = Comm.NumProc ();
     
   // Read configuration file
   if (argc < 2)
@@ -165,10 +165,11 @@ int main(int argc, char * argv[])
     Anasazi::BasicOutputManager<ScalarType> printer;
 
     // Scale the number of trajectories with the number of processors
-    const size_t nTrajPerProc = nTraj;
-    const int nTrajPerBox = nTrajPerProc / N * NumProc;
-    size_t nIn = 0;
-    size_t nTot = 0;
+    const long long NumGlobalElements = (long long) N;
+    const long long nTrajPerProc = (long long) nTraj;
+    const long long nTrajPerBox = nTrajPerProc / NumGlobalElements * NumProc;
+    long long nIn = 0;
+    long long nTot = 0;
 
     // Transition step
     const double tau = gsl_vector_get(tauRng, 0);
@@ -181,8 +182,6 @@ int main(int argc, char * argv[])
     int blockSize = 1;
     int numBlocks = nev * 6;
     int numRestarts = 100;
-    // Size of matrix nx*nx
-    const int NumGlobalElements = N;
 
     // Transfer operator declarations
     char postfix[256];
@@ -216,9 +215,9 @@ int main(int argc, char * argv[])
     // Construct a Map that puts approximately the same number of
     // equations on each process.
     if (MyPID == 0)
-      std::cout << "Constructing a map for " << N << " elements..."
-		<< std::endl;
-    Epetra_Map rowMap ((int) N, 0, Comm);
+      std::cout << "Constructing a map for " << NumGlobalElements
+		<< " elements..." << std::endl;
+    Epetra_Map rowMap (NumGlobalElements, 0, Comm);
     
     // Create a sort manager to pass into the block Krylov-Schur
     // solver manager
@@ -248,9 +247,9 @@ int main(int argc, char * argv[])
 #pragma omp parallel
     {
       // Storage for this processor's nonzeros.
-      int *jv = (int *) malloc(nTrajPerBox * sizeof(int));
+      long long *jv = (long long *) malloc(nTrajPerBox * sizeof(long long));
       double *vv = (double *) malloc(nTrajPerBox * sizeof(double));
-      size_t boxf, traj, trajTot;
+      long long boxf, traj, trajTot;
     
       // Initial condition and final box membership per initial box
       gsl_vector *IC = gsl_vector_alloc(dim);
@@ -270,31 +269,31 @@ int main(int argc, char * argv[])
        */
       // Srinkle box by box
 #pragma omp for
-      for (size_t box0 = 0; box0 < N; box0++) {
-	if (rowMap.MyGID((int) box0)) {
+      for (long long box0 = 0; box0 < NumGlobalElements ; box0++) {
+	if (rowMap.MyGID(box0)) {
 	  // Verbose
-	  if (box0 % (N / 100) == 0) {
+	  if (box0 % (NumGlobalElements / 100) == 0) {
 #pragma omp critical
 	    {
-	      std::cout << "Getting transitions from box " << box0
-			<< " of " << N-1 << " by " << MyPID << std::endl;
+	      std::cout << "Getting transitions from box " << box0 << " of "
+			<< NumGlobalElements-1 << " by " << MyPID << std::endl;
 	    }
 	  }
 	
 	  // Get boundaries of box
-	  getBoxBoundaries(box0, nx, grid, minBox, maxBox);
+	  getBoxBoundaries((size_t) box0, nx, grid, minBox, maxBox);
 
 	  // Simulate trajecories from uniformly sampled initial cond in box
 	  traj = 0;
 	  trajTot = 0;
-	  while (traj < (size_t) nTrajPerBox) {
+	  while (traj < nTrajPerBox) {
 	    // Get random initial distribution
 	    for (size_t d = 0; d < (size_t) dim; d++)
 	      gsl_vector_set(IC, d, gsl_ran_flat(r, gsl_vector_get(minBox, d),
 						 gsl_vector_get(maxBox, d)));
 	  
 	    // Get trajectory
-	    if ((boxf = getTraj(mod, grid, IC, tau, dt)) < N) {
+	    if ((boxf = getTraj(mod, grid, IC, tau, dt)) < NumGlobalElements) {
 	      jv[traj] = boxf;
 	      vv[traj] = 1. / nTrajPerBox;
 	      traj++;
@@ -401,6 +400,8 @@ int main(int argc, char * argv[])
     Anasazi::ReturnType returnCode = MySolverMan->solve ();
 
     // Get the eigenvalues and eigenvectors from the eigenproblem
+    if (MyPID == 0)
+      std::cout << "Getting solution..." << std::endl;
     Anasazi::Eigensolution<ScalarType, MV> sol = MyProblem->getSolution ();
     std::vector<Anasazi::Value<ScalarType> > evals = sol.Evals;
     std::vector<int> index = sol.index;
@@ -506,11 +507,11 @@ cart2Sphere(gsl_vector *X)
 }
 
 
-int
+long long
 getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
 	const double dt)
 {
-  int boxf;
+  long long boxf;
   
   // Convert initial condition from spherical
   // to Cartesian coordinates
@@ -524,7 +525,7 @@ getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
   cart2Sphere(mod->current);
   
   // Get box of final state
-  boxf = grid->getBoxMembership(mod->current);
+  boxf = (long long) grid->getBoxMembership(mod->current);
   
   return boxf;
 }
