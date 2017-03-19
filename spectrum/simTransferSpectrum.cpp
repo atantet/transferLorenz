@@ -174,9 +174,6 @@ int main(int argc, char * argv[])
     // Transition step
     const double tau = gsl_vector_get(tauRng, 0);
     
-    // Eigen problem
-    char EigValForwardFileName[256], EigVecForwardFileName[256];
-
     // Eigen solver configuration
     std::string which ("LM");
     int blockSize = 1;
@@ -184,8 +181,8 @@ int main(int argc, char * argv[])
     int numRestarts = 100;
 
     // Transfer operator declarations
-    char postfix[256];
-    char srcPostfix[256], dstGridPostfix[256], gridFileName[256];
+    char postfix[256], srcPostfix[256], dstGridPostfix[256];
+    char gridFileName[256], EigValForwardFileName[256], EigVecForwardFileName[256];
     sprintf(srcPostfix, "_%s", caseName);
     sprintf(gridFileName, "%s/grid/grid%s%s.txt", resDir, srcPostfix,
 	    gridPostfix);
@@ -355,7 +352,8 @@ int main(int argc, char * argv[])
 
     /** Create the eigenproblem. */
     if (MyPID == 0)
-      std::cout << "Setting eigen problem..." << std::endl;
+      std::cout << "Setting eigen problem for " << nev << " eigen elements..."
+		<< std::endl;
     Teuchos::RCP<Anasazi::BasicEigenproblem<ScalarType, MV, OP> >
       MyProblem = Teuchos::rcp
       (new Anasazi::BasicEigenproblem<ScalarType, MV, OP> (A, ivec));

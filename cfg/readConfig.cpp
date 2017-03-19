@@ -216,7 +216,8 @@ readSimulation(const Config *cfg, const bool verboseCFG)
 	  for (size_t i =0; i < (size_t) (initStateSetting.getLength()); i++)
 	    {
 	      gsl_vector_set(initState, i, initStateSetting[i]);
-	      std::cout << gsl_vector_get(initState, i) << " ";
+	      if (verboseCFG)
+		std::cout << gsl_vector_get(initState, i) << " ";
 	    }
 	  if (verboseCFG)
 	    std::cout << "]" << std::endl;
