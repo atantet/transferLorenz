@@ -12,6 +12,7 @@
 #include <ODESolvers.hpp>
 #include <ODEFields.hpp>
 #include <gsl_extension.hpp>
+#include <omp.h>
 #include "../cfg/readConfig.hpp"
 
 using namespace libconfig;
@@ -38,10 +39,7 @@ bool isStationaryPoint(const gsl_matrix *X, const double gap,
  */
 int main(int argc, char * argv[])
 {
-  FILE *dstStream;
-  gsl_matrix *X;
-  char dstFileName[256], dstPostfix[256], srcPostfix[256];
-  size_t seed;
+  char dstPostfix[256], srcPostfix[256];
 
   // Read configuration file
   if (argc < 2) {
@@ -88,22 +86,6 @@ int main(int argc, char * argv[])
     return(EXIT_FAILURE);
   }
 
-  // Set random number generator
-  gsl_rng * r = gsl_rng_alloc(gsl_rng_ranlxs1);
-  // Get seed and set random number generator
-  seed = gsl_vector_uint_get(seedRng, 0);
-  std::cout << "Setting random number generator with seed: " << seed
-	    << std::endl;;
-  gsl_rng_set(r, seed);
-
-
-  // Define field
-  vectorField *field = new Lorenz63(&p);
-  // Define numerical scheme
-  numericalScheme *scheme = new RungeKutta4(dim);
-  // Define model (the initial state will be assigned later)
-  model *mod = new model(field, scheme);
-
   sprintf(srcPostfix, "_%s", caseName);
   sprintf(dstPostfix, "%s_rho%04d_L%d_spinup%d_dt%d_samp%d", srcPostfix,
 	  (int) (p["rho"] * 100 + 0.1), (int) L, (int) spinup,
@@ -111,63 +93,95 @@ int main(int argc, char * argv[])
 	  (int) printStepNum);
   
   // Iterate several trajectories
-  size_t traj = 0;
-  while (traj < (size_t) nTraj) {
-    // Get random initial distribution
-    for (size_t d = 0; d < (size_t) dim; d++)
-      gsl_vector_set(initState, d,
-		     gsl_ran_flat(r, gsl_vector_get(minInitState, d),
-				  gsl_vector_get(maxInitState, d)));
+#pragma omp parallel
+  {
+    gsl_vector *init = gsl_vector_alloc(dim);
+    gsl_matrix *X;
+    char dstFileName[256];
+    FILE *dstStream;
+    size_t seed;
 
-    // Set initial state
-    printf("\nSetting initial state to (%.1lf, %.1lf, %.1lf)\n",
-	   gsl_vector_get(initState, 0),
-	   gsl_vector_get(initState, 1),
-	   gsl_vector_get(initState, 2));
-    mod->setCurrentState(initState);
+    // Define field
+    vectorField *field = new Lorenz63(&p);
+    // Define numerical scheme
+    numericalScheme *scheme = new RungeKutta4(dim);
+    // Define model (the initial state will be assigned later)
+    model *mod = new model(field, scheme);
 
-    // Numerical integration of spinup
-    std::cout << "Integrating spinup..." << std::endl;
-    X = gsl_matrix_alloc(1, 1); // Fake allocation
-    mod->integrate(initState, spinup, dt, 0., printStepNum, &X);
-
-    // Check if stationary point
-    if (isStationaryPoint(X, 0.1, printStep, 1.e-8)) {
-      std::cout << "Trajectory converged to stationary point. Continue..."
+    // Set random number generator
+    gsl_rng * r = gsl_rng_alloc(gsl_rng_ranlxs1);
+    // Get seed and set random number generator
+    seed = (size_t) (1 + omp_get_thread_num());
+#pragma omp critical
+    {
+      std::cout << "Setting random number generator with seed: " << seed
 		<< std::endl;
-      continue;
     }
+    gsl_rng_set(r, seed);
 
-    // Numerical integration
-    std::cout << "Integrating trajectory..." << std::endl;
-    mod->integrate(L, dt, 0., printStepNum, &X);
+#pragma omp for
+    for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
+      bool stat = true;
+      while (stat) {
+	// Get random initial distribution
+	for (size_t d = 0; d < (size_t) dim; d++)
+	  gsl_vector_set(init, d,
+			 gsl_ran_flat(r, gsl_vector_get(minInitState, d),
+				      gsl_vector_get(maxInitState, d)));
 
-    // Write results
-    sprintf(dstFileName, "%s/simulation/sim%s_traj%d.%s",
-	    resDir, dstPostfix, (int) traj, fileFormat);
-    if (!(dstStream = fopen(dstFileName, "w"))) {
-      std::cerr << "Can't open " << dstFileName
-		<< " for writing simulation: " << std::endl;;
-      perror("");
-      return EXIT_FAILURE;
+	// Set initial state
+	printf("\nSetting initial state to (%.1lf, %.1lf, %.1lf)\n",
+	       gsl_vector_get(init, 0),
+	       gsl_vector_get(init, 1),
+	       gsl_vector_get(init, 2));
+	mod->setCurrentState(init);
+
+	// Numerical integration of spinup
+	std::cout << "Integrating spinup..." << std::endl;
+	X = gsl_matrix_alloc(1, 1); // Fake allocation
+	mod->integrate(init, spinup, dt, 0., printStepNum, &X);
+
+	// Check if stationary point
+	if (isStationaryPoint(X, 0.1, printStep, 1.e-8))
+	  std::cout << "Trajectory converged to stationary point. Continue..."
+		    << std::endl;
+	else
+	  stat = false;
+      }
+
+      // Numerical integration
+      std::cout << "Integrating trajectory..." << std::endl;
+      mod->integrate(L, dt, 0., printStepNum, &X);
+
+      // Write results
+#pragma omp critical
+      {
+	sprintf(dstFileName, "%s/simulation/sim%s_traj%d.%s",
+		resDir, dstPostfix, (int) traj, fileFormat);
+	if (!(dstStream = fopen(dstFileName, "w"))) {
+	  std::cerr << "Can't open " << dstFileName
+		    << " for writing simulation: " << std::endl;;
+	  perror("");
+	}
+
+	std::cout << "Writing..." << std::endl;
+	if (strcmp(fileFormat, "bin") == 0)
+	  gsl_matrix_fwrite(dstStream, X);
+	else
+	  gsl_matrix_fprintf(dstStream, X, "%f");
+	fclose(dstStream);  
+      }
+
+      // Free
+      gsl_matrix_free(X);
     }
-
-    std::cout << "Writing..." << std::endl;
-    if (strcmp(fileFormat, "bin") == 0)
-      gsl_matrix_fwrite(dstStream, X);
-    else
-      gsl_matrix_fprintf(dstStream, X, "%f");
-    fclose(dstStream);  
-
-    // Free
-    gsl_matrix_free(X);
-
-    traj++;
+    delete mod;
+    delete scheme;
+    delete field;
+    gsl_vector_free(init);
+    gsl_rng_free(r);
   }
-  delete mod;
-  delete scheme;
-  delete field;
-  gsl_rng_free(r);
+  
   freeConfig();
 
   return 0;
