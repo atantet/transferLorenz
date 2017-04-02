@@ -80,13 +80,15 @@ void getBoxBoundaries(size_t box0, gsl_vector_uint *nx,
 int main(int argc, char * argv[])
 {
 #ifdef HAVE_MPI
-    // Initialize MPI
-    MPI_Init(&argc, &argv);
-    // Create an Epetra communicator
-    Epetra_MpiComm Comm(MPI_COMM_WORLD);
+  // Initialize MPI
+  MPI_Init(&argc, &argv);
+  // Create an Epetra communicator
+  Epetra_MpiComm Comm(MPI_COMM_WORLD);
 #else
-    Epetra_SerialComm Comm;
+  Epetra_SerialComm Comm;
 #endif
+  const int MyPID = Comm.MyPID ();
+  const int NumProc = Comm.NumProc ();
     
   // Read configuration file
   if (argc < 2)
@@ -101,15 +103,23 @@ int main(int argc, char * argv[])
   try
     {
       Config cfg;
-      std::cout << "Sparsing config file " << configFileName << std::endl;
+      bool verboseCFG;
+      if (MyPID == 0) {
+	std::cout << "Sparsing config file " << configFileName << std::endl;
+	verboseCFG = true;
+      }
+      else
+	verboseCFG = false;
       cfg.readFile(configFileName);
-      readGeneral(&cfg);
-      readModel(&cfg);
-      readSimulation(&cfg);
-      readSprinkle(&cfg);
-      readGrid(&cfg);
-      readTransfer(&cfg);
-      std::cout << "Sparsing success.\n" << std::endl;
+      readGeneral(&cfg, verboseCFG);
+      readModel(&cfg, verboseCFG);
+      readSimulation(&cfg, verboseCFG);
+      readSprinkle(&cfg, verboseCFG);
+      readGrid(&cfg, verboseCFG);
+      readTransfer(&cfg, verboseCFG);
+      readSpectrum(&cfg, verboseCFG);
+      if (MyPID == 0)
+	std::cout << "Sparsing success.\n" << std::endl;
     }
   catch(const SettingTypeException &ex) {
     std::cerr << "Setting " << ex.getPath() << " type exception." << std::endl;
@@ -156,7 +166,7 @@ int main(int argc, char * argv[])
     sprintf(gridFileName, "%s/grid/grid%s%s.txt", resDir, srcPostfix,
 	    gridPostfix);
     sprintf(dstGridPostfix, "%s%s_rho%04d_L%d_dt%d_nTraj%d",
-	    srcPostfix, gridPostfix, (int) (rho * 100 + 0.1),
+	    srcPostfix, gridPostfix, (int) (p["rho"] * 100 + 0.1),
 	    (int) (tau * 1000),
 	    (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)+0.1), nTraj);
     sprintf(postfix, "%s", dstGridPostfix);
@@ -198,7 +208,7 @@ int main(int argc, char * argv[])
     gsl_vector *maxBox = gsl_vector_alloc(dim);
     
     // Define field
-    vectorField *field = new Lorenz63(rho, sigma, beta);
+    vectorField *field = new Lorenz63(&p);
     // Define numerical scheme
     numericalScheme *scheme = new RungeKutta4(dim);
     // Define model (the initial state will be assigned later)
@@ -265,7 +275,8 @@ int main(int argc, char * argv[])
     // Elapsed time
     double dt = timer.ElapsedTime();
     if (MyPID == 0)
-      std::cout << "Transition matrix build time (secs):  " << dt << std::endl;
+      std::cout << "Transition matrix build time (secs):  " << dt
+		<< std::endl;
 
     free(jv);
     free(vv);
@@ -281,8 +292,9 @@ int main(int argc, char * argv[])
     if (MyPID == 0)
       std::cout << "Writing forward transition matrix..."
 		<< std::endl;
+    HDF5.CreateGroup("forwardTransitionMatrix");
     HDF5.Write("forwardTransitionMatrix", *P);
-
+    HDF5.Close();
   }
   catch(EpetraExt::Exception& rhs) 
   {
@@ -305,7 +317,7 @@ int main(int argc, char * argv[])
 
 /** 
  * Conversion from spherical to Cartesian coordinates
- * centered at (0, 0, rho + sigma) and of unit radius rho + sigma.
+ * centered at (0, 0, p["rho"] + p["sigma"]) and of unit radius p["rho"] + p["sigma"].
  * \param[inout] x Coordinates of vector to convert.
  */
 void
@@ -318,7 +330,7 @@ sphere2Cart(gsl_vector *X)
   theta = gsl_vector_get(X, 1);    
   phi = gsl_vector_get(X, 2);
 
-  r *= rho + sigma;
+  r *= p["rho"] + p["sigma"];
   
   x = r * sin(theta) * cos(phi);
   y = r * sin(theta) * sin(phi);
@@ -326,14 +338,14 @@ sphere2Cart(gsl_vector *X)
 
   gsl_vector_set(X, 0, x);
   gsl_vector_set(X, 1, y);
-  gsl_vector_set(X, 2, z + rho + sigma);
+  gsl_vector_set(X, 2, z + p["rho"] + p["sigma"]);
   
   return;
 }
 
 /** 
  * Conversion from Cartesian to spherical coordinates
- * centered at (0, 0, rho + sigma) and of unit radius rho + sigma.
+ * centered at (0, 0, p["rho"] + p["sigma"]) and of unit radius p["rho"] + p["sigma"].
  * \param[inout] x Coordinates of vector to convert.
  */
 void
@@ -344,12 +356,12 @@ cart2Sphere(gsl_vector *X)
 
   x = gsl_vector_get(X, 0);
   y = gsl_vector_get(X, 1);    
-  z = gsl_vector_get(X, 2) - (rho + sigma);
+  z = gsl_vector_get(X, 2) - (p["rho"] + p["sigma"]);
 
   r = sqrt(gsl_pow_2(x) + gsl_pow_2(y) + gsl_pow_2(z));
   theta = acos(z / r);
   phi = atan2(y, x);
-  r /= rho + sigma;
+  r /= p["rho"] + p["sigma"];
 
 
   gsl_vector_set(X, 0, r);
@@ -363,7 +375,7 @@ cart2Sphere(gsl_vector *X)
 int
 getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
 	const double dt)
-p{
+{
   int boxf;
   
   // Convert initial condition from spherical

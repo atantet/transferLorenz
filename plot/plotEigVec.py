@@ -20,6 +20,8 @@ configFile = '../cfg/Lorenz63.cfg'
 compName1 = 'x'
 compName2 = 'y'
 compName3 = 'z'
+#readSpec = ergoPlot.readSpectrum
+readSpec = ergoPlot.readSpectrumCompressed
 
 cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
@@ -34,6 +36,9 @@ beta = cfg.model.beta
 p = (rho, sigma, beta)
 dim = cfg.model.dim
 dimObs = dim
+nProc = ''
+if (hasattr(cfg.sprinkle, 'nProc')):
+    nProc = '_nProc' + str(cfg.sprinkle.nProc)
 
 xmineigVal = -cfg.stat.rateMax
 ymineigVal = -cfg.stat.angFreqMax
@@ -57,9 +62,10 @@ for d in np.arange(dimObs):
                                         cfg.sprinkle.minInitState[d],
                                         cfg.sprinkle.maxInitState[d])
 gridPostfix = "_%s%s" % (caseName, gridPostfix)
-srcPostfixSim = "%s_rho%04d_L%d_dt%d_nTraj%d" \
+srcPostfixSim = "%s_rho%04d_L%d_dt%d_nTraj%d%s" \
                 % (gridPostfix, int(rho * 100 + 0.1), int(tau * 1000 + 0.1),
-                   -np.round(np.log10(cfg.simulation.dt)), cfg.sprinkle.nTraj)
+                   -np.round(np.log10(cfg.simulation.dt)), cfg.sprinkle.nTraj,
+                   nProc)
 
 # Read grid
 gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
@@ -86,9 +92,8 @@ eigVecForwardFile = '%s/eigvec/eigvecForward_nev%d%s.%s' \
 # Read transfer operator spectrum from file and create a bi-orthonormal basis
 # of eigenvectors and backward eigenvectors:
 print 'Readig spectrum for tau = %.3f...' % tau
-(eigValForward, eigVecForward) \
-    = ergoPlot.readSpectrum(eigValForwardFile, eigVecForwardFile,
-                            fileFormat=cfg.general.fileFormat)
+(eigValForward, eigVecForward) = readSpec(eigValForwardFile,
+                                          eigVecForwardFile)
 
 # Get generator eigenvalues (using the complex logarithm)
 eigValGen = np.log(eigValForward) / tau

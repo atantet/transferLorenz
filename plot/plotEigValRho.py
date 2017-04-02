@@ -4,12 +4,12 @@ import matplotlib.pyplot as plt
 import pylibconfig2
 import ergoPlot
 
-#ergoPlot.dpi = 2000
-
 configFile = '../cfg/Lorenz63.cfg'
 compName1 = 'x'
 compName2 = 'y'
 compName3 = 'z'
+#readSpec = ergoPlot.readSpectrum
+readSpec = ergoPlot.readSpectrumCompressed
 
 cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
@@ -20,6 +20,9 @@ printStepNum = int(cfg.simulation.printStep / cfg.simulation.dt + 0.1)
 caseName = cfg.model.caseName
 dim = cfg.model.dim
 dimObs = dim
+nProc = ''
+if (hasattr(cfg.sprinkle, 'nProc')):
+    nProc = '_nProc' + str(cfg.sprinkle.nProc)
 
 N = np.prod(np.array(cfg.grid.nx))
 gridPostfix = ""
@@ -33,15 +36,15 @@ for d in np.arange(dimObs):
                                         cfg.sprinkle.minInitState[d],
                                         cfg.sprinkle.maxInitState[d])
 gridPostfix = "_%s%s" % (caseName, gridPostfix)
-simPostfix = "_L%d_dt%d_nTraj%d" \
-             % (int(tau * 1000 + 0.1),
-                -np.round(np.log10(cfg.simulation.dt)),
-                cfg.sprinkle.nTraj)
+simPostfix = "_L%d_dt%d_nTraj%d%s" \
+                % (int(tau * 1000 + 0.1),
+                   -np.round(np.log10(cfg.simulation.dt)),
+                   cfg.sprinkle.nTraj, nProc)
 
-rhoRng = np.array([0., 1., 2., 5., 7.5, 10., 11., 12., 13., 13.5, 13.75,
-                   14., 15., 16., 18., 19., 19.5, 20., 20.5, 21., 21.25,
-                   21.5, 21.75, 22., 22.25, 22.5, 22.75, 23., 23.25, 23.5,
-                   23.75, 24., 24.25, 24.5, 24.75, 25., 26.])
+rhoRng = np.arange(22., 26.01, 0.5)
+rhoRng = np.sort(np.concatenate((rhoRng, np.arange(24.1, 24.41, 0.1),
+                                 np.arange(24.6, 24.91, 0.1))))
+rhoRng = np.concatenate(([20, 21.], rhoRng, [27., 28.]))
 # gapRng = np.empty((rhoRng.shape[0],))
 eigValRng = np.empty((rhoRng.shape[0], cfg.spectrum.nev))
 dstPostfix = "%s_rhomin%04d_rhomax%04d%s" \
@@ -62,9 +65,7 @@ for irho in np.arange(rhoRng.shape[0]):
     # and create a bi-orthonormal basis
     # of eigenvectors and backward eigenvectors:
     print 'Readig spectrum for tau = %.3f...' % tau
-    (eigValForward,) \
-        = ergoPlot.readSpectrum(eigValForwardFile,
-                                fileFormat=cfg.general.fileFormat)
+    (eigValForward,) = readSpec(eigValForwardFile)
 
     # Get generator eigenvalues (using the complex logarithm)
     eigValGen = np.log(eigValForward) / tau
@@ -72,11 +73,15 @@ for irho in np.arange(rhoRng.shape[0]):
     eigValGen = eigValGen[isort]
 
     # Record spectral gap
-    eigValRng[irho] = eigValGen[:cfg.spectrum.nev]
+    eigValRng[irho] = eigValGen[:cfg.spectrum.nev].real
+    # Remove spurious positive eigenvalues (where do they come from?)
+    eigValRng[irho, eigValRng[irho] > 1.e-4] = np.nan
+    isort = np.argsort(-eigValRng[irho])
+    eigValRng[irho] = eigValRng[irho, isort]
 
 
 # Plot
-nevPlot = 3
+nevPlot = 7
 ls = '-'
 mk = '+'
 lw = 2
@@ -90,6 +95,7 @@ for ev in np.arange(nevPlot):
     ax.plot(rhoRng, eigValRng[:, ev].real, linestyle=linestyles[ev%2],
             linewidth=lw)
 ax.set_xlim(rhoRng[0], rhoRng[-1])
+ax.set_ylim(-0.12, 0.001)
 ax.set_xlabel(r'$\rho$', fontsize=ergoPlot.fs_latex)
 ax.set_ylabel(r'$\Re(\lambda_i)$', fontsize=ergoPlot.fs_latex)
 plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
@@ -98,21 +104,22 @@ plt.savefig('%s/spectrum/eigVal/eigVSRho%s.%s'\
             % (cfg.general.plotDir, dstPostfix, ergoPlot.figFormat),
             dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
 
-fig = plt.figure()
-ax = fig.add_subplot(111)
-for ev in np.arange(nevPlot):
-    ax.plot(rhoRng[selRho], eigValRng[selRho, ev].real,
-            linestyle=linestyles[ev%d], linewidth=lw)
-ax.set_xlim(rhoRng[selRho][0], rhoRng[selRho][-1])
-ax.set_ylim(-0.06, 0.002)
-ax.set_xticks(np.arange(21, 25.1, 1))
-ax.set_xlabel(r'$\rho$', fontsize=ergoPlot.fs_latex)
-ax.set_ylabel(r'$\Re(\lambda_i)$', fontsize=ergoPlot.fs_latex)
-plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
-plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
-plt.savefig('%s/spectrum/eigVal/eigVSRhoZoom%s.%s'\
-            % (cfg.general.plotDir, dstPostfix, ergoPlot.figFormat),
-            dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
+# fig = plt.figure()
+# ax = fig.add_subplot(111)
+# selRho = (rhoRng >= 21.) & (rhoRng <= 25.)
+# for ev in np.arange(nevPlot):
+#     ax.plot(rhoRng[selRho], eigValRng[selRho, ev].real,
+#             linestyle=linestyles[ev%d], linewidth=lw)
+# ax.set_xlim(rhoRng[selRho][0], rhoRng[selRho][-1])
+# ax.set_ylim(-0.06, 0.002)
+# ax.set_xticks(np.arange(21, 25.1, 1))
+# ax.set_xlabel(r'$\rho$', fontsize=ergoPlot.fs_latex)
+# ax.set_ylabel(r'$\Re(\lambda_i)$', fontsize=ergoPlot.fs_latex)
+# plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
+# plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
+# plt.savefig('%s/spectrum/eigVal/eigVSRhoZoom%s.%s'\
+#             % (cfg.general.plotDir, dstPostfix, ergoPlot.figFormat),
+#             dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
 
 # fig = plt.figure()
 # ax = fig.add_subplot(111)

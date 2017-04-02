@@ -98,9 +98,10 @@ int main(int argc, char * argv[])
 	}
 
       // Get random initial distribution
-      gsl_vector_set(initState, 0, gsl_ran_flat(r, -20, 20));
-      gsl_vector_set(initState, 1, gsl_ran_flat(r, -30, 30));
-      gsl_vector_set(initState, 2, gsl_ran_flat(r, 0, 50));
+      for (size_t d = 0; d < (size_t) dim; d++) {
+	gsl_vector_set(initState, d,
+		       gsl_ran_flat(r, gsl_vector_get(minInitState, d),
+				    gsl_vector_get(maxInitState, d));
 
       // Set initial state
       printf("Setting initial state to (%.1lf, %.1lf, %.1lf)\n",

@@ -4,11 +4,9 @@
 char resDir[256];               //!< Root directory in which results are written
 char caseName[256];             //!< Name of the case
 char caseNameModel[256];        //!< Name of the case to simulate 
-double rho;                     //!< Parameters for the Lorenz flow
-double sigma;                   //!< Parameters for the Lorenz flow
-double beta;                    //!< Parameters for the Lorenz flow
 char fileFormat[256];           //!< File format of output ("txt" or "bin")
 int dim;                        //!< Dimension of the phase space
+param p;                        //!< Model adimensional parameters
 // Continuation
 double epsDist;                 //!< Tracking distance tolerance
 double epsStepCorrSize;         //!< Tracking correction step size tolerance
@@ -97,44 +95,31 @@ readModel(const Config *cfg, const bool verboseCFG)
   if (cfg->exists("model"))
     {
       /** Get model settings */
-      if (verboseCFG)
-	std::cout << std::endl << "---model---" << std::endl;
+      std::cout << std::endl << "---model---" << std::endl;
 
       // Dimension
       dim = cfg->lookup("model.dim");
       dimObs = dim;
-      if (verboseCFG)
-	std::cout << "dim = " << dim << std::endl;
+      std::cout << "dim = " << dim << std::endl;
 
       // Case name
       strcpy(caseName, (const char *) cfg->lookup("model.caseName"));
-      if (verboseCFG)
-	std::cout << "Case name: " << caseName << std::endl;
-      if (cfg->exists("model.rho"))
-	{
-	  rho = cfg->lookup("model.rho");
-	  if (verboseCFG)
-	    std::cout << "rho = " << rho << std::endl;
-	}
-      if (cfg->exists("model.sigma"))
-	{
-	  sigma = cfg->lookup("model.sigma");
-	  if (verboseCFG)
-	    std::cout << "sigma = " << sigma << std::endl;
-	}
-      if (cfg->exists("model.beta"))
-	{
-	  beta = cfg->lookup("model.beta");
-	  if (verboseCFG)
-	    std::cout << "beta = " << beta << std::endl;
-	}
-      sprintf(caseNameModel, "%s_rho%d_sigma%d_beta%d", caseName,
-	      (int) (rho * 1000 + 0.1), (int) (sigma * 1000 + 0.1),
-	      (int) (beta * 1000 + 0.1));
-    }
+      std::cout << "Case name: " << caseName << std::endl;
+
+      p["rho"] = cfg->lookup("model.rho");
+      p["sigma"] = cfg->lookup("model.sigma");
+      p["beta"] = cfg->lookup("model.beta");
+      std::cout << "rho = " << p["rho"] << std::endl;
+      std::cout << "sigma = " << p["sigma"] << std::endl;
+      std::cout << "beta = " << p["beta"] << std::endl;
+      if (cfg->exists("model.eps")) {
+	p["eps"] = cfg->lookup("model.eps");
+	std::cout << "eps = " << p["eps"] << std::endl;
+      }
+    } 
   else
-    if (verboseCFG)
-      std::cout << "Model configuration section does not exist..." << std::endl;
+    std::cout << "Model configuration section does not exist..."
+	      << std::endl;
 
   return;
 }
@@ -601,16 +586,6 @@ readSpectrum(const Config *cfg, const bool verboseCFG)
 	{
 	  config.AutoShift = (bool) cfg->lookup("spectrum.AutoShift");
 	}
-      if (verboseCFG) {
-	std::cout << "nev: " << nev << std::endl;
-	std::cout << "which: " << config.which << std::endl;
-	std::cout << "ncv: " << config.ncv << std::endl;
-	std::cout << "tol: " << config.tol << std::endl;
-	std::cout << "maxit: " << config.maxit << std::endl;
-	std::cout << "AutoShift: " << config.AutoShift << std::endl;
-	std::cout << std::endl;
-      }
-
       if (cfg->exists("spectrum.getForwardEigenvectors"))
 	{
 	  getForwardEigenvectors =
@@ -625,6 +600,21 @@ readSpectrum(const Config *cfg, const bool verboseCFG)
 	{
 	  makeBiorthonormal = cfg->lookup("spectrum.makeBiorthonormal");
 	}
+      if (verboseCFG) {
+	std::cout << "nev: " << nev << std::endl;
+	std::cout << "which: " << config.which << std::endl;
+	std::cout << "ncv: " << config.ncv << std::endl;
+	std::cout << "tol: " << config.tol << std::endl;
+	std::cout << "maxit: " << config.maxit << std::endl;
+	std::cout << "AutoShift: " << config.AutoShift << std::endl;
+	std::cout << "Get forward eigenvectors? "
+		  << getForwardEigenvectors << std::endl;
+	std::cout << "Get backward eigenvectors? "
+		  << getBackwardEigenvectors << std::endl;
+	std::cout << "Make biorthonormal? "
+		  << makeBiorthonormal << std::endl;
+	std::cout << std::endl;
+      }
     }
     else
       if (verboseCFG)

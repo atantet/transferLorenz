@@ -51,12 +51,15 @@ win = int(100 / printStep)
 timeWin = time[nWin*win:(nWin+1)*win]
 iobs = 0
 labelsAngle = [r'$\theta_{+0}$', r'$\theta_{+-}$', r'$\theta_{0-}$']
+labelsStretch = [r'$\xi_{+}$', r'$\xi_{0}$', r'$\xi_{-}$']
 labelsObs = [r'$x$', r'$y$', r'$z$']
 ticksAngle = np.arange(0., np.pi/2+0.1, np.pi/4)
 ticklabelsAngle = [r'$0$', r'$\pi/4$', r'$\pi/2$']
+nBins = 500
 
-#plotCLV = False
-plotCLV = True
+plotCLV = False
+#plotCLV = True
+plotStretch = True
 LyapExpRng = np.empty((rhoRng.shape[0], dim))
 meanAngleRng = np.empty((rhoRng.shape[0], dim, dim))
 minAngleRng = np.empty((rhoRng.shape[0], dim, dim))
@@ -89,14 +92,15 @@ for irho in np.arange(rhoRng.shape[0]):
         readFile = np.loadtxt
     print 'Reading Lyapunov exponents...'
     LyapExp = readFile(LyapExpFile)
+    if plotStretch:
+        print 'Reading stretching rates...'
+        stretchRate = readFile(stretchRateFile)
+        stretchRate = stretchRate.reshape(ntSamp, dim)
     if plotCLV:
-        # print 'Reading stretching rates...'
-        # stretchRate = readFile(stretchRateFile)
         print 'Reading covariant Lyapunov vectors...'
         CLV = readFile(CLVFile)
         print 'Reading time series...'
         ts = readFile(tsFile)
-        # stretchRate = stretchRate.reshape(ntSamp, dim)
         CLV = CLV.reshape(ntSamp, dim, dim)
         ts = ts.reshape(ntSamp, dim)
 
@@ -108,6 +112,27 @@ for irho in np.arange(rhoRng.shape[0]):
         dist2Sing = sqrt(np.sum(ts**2, 1))
         meanDist2SingRng[irho] = np.mean(dist2Sing)
 
+    if plotStretch:
+        bins = 500
+        for d in np.arange(dim):
+            # Plot histogram
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.hist(stretchRate[:, d], bins, color='k', normed=True)
+            ax.set_xlabel(labelsStretch[k], fontsize=ergoPlot.fs_latex)
+            #ax.set_xlim(bins[0], bins[-1])
+            #ax.set_ylim(0., ylimHist[k])
+            #ax.set_xticks(ticksAngle)
+            #ax.set_xticklabels(ticklabelsAngle)
+            plt.setp(ax.get_xticklabels(),
+                     fontsize=ergoPlot.fs_xticklabels)
+            plt.setp(ax.get_yticklabels(),
+                     fontsize=ergoPlot.fs_yticklabels)
+            fig.savefig('%s/CLV/stretchHist/stretchHist%d%s.eps' \
+                        % (plotDir, d, dstPostfix),
+                        dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
+
+
     if plotCLV:
         print 'Plotting angles...'
         angleWin = angle[nWin*win:(nWin+1)*win]
@@ -116,7 +141,6 @@ for irho in np.arange(rhoRng.shape[0]):
         inLobePlus = (tsWin[:, iobs] > 0.)
         ylimAngle = [0., np.pi/2]
         ylimHist = [2., 2.1, 3.7]
-        nBins = 500
         bins = np.linspace(ylimAngle[0], ylimAngle[1], nBins)
         ylimTS = np.array([np.min(tsWin[:, iobs]),
                            np.max(tsWin[:, iobs])])
@@ -150,7 +174,7 @@ for irho in np.arange(rhoRng.shape[0]):
                          fontsize=ergoPlot.fs_yticklabels)
                 fig.savefig('%s/CLV/angle/angle%d%d%s.eps' \
                             % (plotDir, d, dd, dstPostfix),
-                            dpi=300, bbox_inches='tight')
+                            dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
 
                 # Plot histogram
                 fig = plt.figure()
@@ -167,7 +191,7 @@ for irho in np.arange(rhoRng.shape[0]):
                          fontsize=ergoPlot.fs_yticklabels)
                 fig.savefig('%s/CLV/angleHist/angleHist%d%d%s.eps' \
                             % (plotDir, d, dd, dstPostfix),
-                            dpi=300, bbox_inches='tight')
+                            dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
                 k +=1
 
         # Plot state time series
@@ -190,7 +214,7 @@ for irho in np.arange(rhoRng.shape[0]):
         plt.setp(ax.get_yticklabels(),
                  fontsize=ergoPlot.fs_yticklabels)
         fig.savefig('%s/CLV/ts/ts%s.eps' % (plotDir, dstPostfix),
-                    dpi=300, bbox_inches='tight')
+                    dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
     
         # Plot distance to singularity
         fig = plt.figure()
@@ -212,7 +236,7 @@ for irho in np.arange(rhoRng.shape[0]):
         plt.setp(ax.get_yticklabels(),
                  fontsize=ergoPlot.fs_yticklabels)
         fig.savefig('%s/CLV/ts/tsDist2Sing%s.eps' % (plotDir, dstPostfix),
-                    dpi=300, bbox_inches='tight')
+                    dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
     
     # Record
     LyapExpRng[irho] = LyapExp    
@@ -233,7 +257,7 @@ ax.set_xlabel(r'$\rho$', fontsize=ergoPlot.fs_latex)
 plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
 plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
 fig.savefig('%s/CLV/LyapExp%s.eps' % (plotDir, dstPostfix),
-            dpi=300, bbox_inches='tight')
+            dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
 
 # Plot volume
 print 'Plotting volume...'
@@ -251,7 +275,7 @@ ax.set_ylabel(r'$\lambda$', fontsize=ergoPlot.fs_latex)
 plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
 plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
 fig.savefig('%s/CLV/vol/vol%s.eps' % (plotDir, dstPostfix),
-            dpi=300, bbox_inches='tight')
+            dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
 
 if plotCLV:
     fig = plt.figure()
@@ -271,7 +295,7 @@ if plotCLV:
     plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
     plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
     fig.savefig('%s/CLV/meanAngle%s.eps' % (plotDir, dstPostfix),
-                dpi=300, bbox_inches='tight')
+                dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -289,7 +313,7 @@ if plotCLV:
     plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
     plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
     fig.savefig('%s/CLV/minAngle%s.eps' % (plotDir, dstPostfix),
-                dpi=300, bbox_inches='tight')
+                dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -303,4 +327,4 @@ if plotCLV:
     plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
     plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
     fig.savefig('%s/CLV/meanDist2Sing%s.eps' % (plotDir, dstPostfix),
-                dpi=300, bbox_inches='tight')
+                dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)

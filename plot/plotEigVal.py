@@ -10,6 +10,8 @@ configFile = '../cfg/Lorenz63.cfg'
 compName1 = 'x'
 compName2 = 'y'
 compName3 = 'z'
+#readSpec = ergoPlot.readSpectrum
+readSpec = ergoPlot.readSpectrumCompressed
 
 cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
@@ -21,6 +23,9 @@ caseName = cfg.model.caseName
 rho = cfg.model.rho
 dim = cfg.model.dim
 dimObs = dim
+nProc = ''
+if (hasattr(cfg.sprinkle, 'nProc')):
+    nProc = '_nProc' + str(cfg.sprinkle.nProc)
 
 N = np.prod(np.array(cfg.grid.nx))
 gridPostfix = ""
@@ -34,9 +39,10 @@ for d in np.arange(dimObs):
                                         cfg.sprinkle.minInitState[d],
                                         cfg.sprinkle.maxInitState[d])
 gridPostfix = "_%s%s" % (caseName, gridPostfix)
-srcPostfixSim = "%s_rho%04d_L%d_dt%d_nTraj%d" \
+srcPostfixSim = "%s_rho%04d_L%d_dt%d_nTraj%d%s" \
                 % (gridPostfix, int(rho * 100 + 0.1), int(tau * 1000 + 0.1),
-                   -np.round(np.log10(cfg.simulation.dt)), cfg.sprinkle.nTraj)
+                   -np.round(np.log10(cfg.simulation.dt)), cfg.sprinkle.nTraj,
+                   nProc)
 
 xmineigVal = -cfg.stat.rateMax
 ymineigVal = -cfg.stat.angFreqMax
@@ -60,8 +66,7 @@ eigValBackwardFile = '%s/eigval/eigvalBackward_nev%d%s.%s' \
 # Read transfer operator spectrum from file and create a bi-orthonormal basis
 # of eigenvectors and backward eigenvectors:
 print 'Readig spectrum for tau = %.3f...' % tau
-(eigValForward,) = ergoPlot.readSpectrum(eigValForwardFile,
-                                         fileFormat=cfg.general.fileFormat)
+(eigValForward,) = readSpec(eigValForwardFile)
 
 # Get generator eigenvalues (using the complex logarithm)
 eigValGen = np.log(eigValForward) / tau
@@ -71,6 +76,8 @@ imagLabel = r'$\Im(\lambda_k)$'
 
 ergoPlot.plotEig(eigValGen, xlabel=realLabel, ylabel=imagLabel,
                  xlim=xlimEig, ylim=ylimEig)
+plt.text(xlimEig[0]*0.2, ylimEig[1]*1.05, r'$\rho = %.1f$' % rho,
+         fontsize=ergoPlot.fs_latex)
 plt.savefig('%s/spectrum/eigVal/eigVal%s.%s'\
             % (cfg.general.plotDir, postfix, ergoPlot.figFormat),
             dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)

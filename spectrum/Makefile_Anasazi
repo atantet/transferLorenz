@@ -1,9 +1,12 @@
+#INCDIR=-I/opt/local/lib/hdf5-18/include/
+#LIBDIR=-L/opt/local/lib/hdf5-18/lib/
 # Import trilinos variables
 include $(TRILINOS_BUILD)/Makefile.export.Trilinos_install
 
 TRILINOS_LIB=-lanasaziepetra -lanasazi -lepetraext -lepetra -lteuchosremainder -lteuchosnumerics -lteuchoscomm -lteuchosparameterlist -lteuchoscore 
 
-LIBS=-lgsl -lconfig++ -lergopack -lopenblas -lgomp $(TRILINOS_LIB)
+LIBS=-lgsl -lconfig++ -lergopack -lopenblas -lgomp  $(TRILINOS_LIB)
+#-lhdf5_cpp
 CONFIG=../cfg/readConfig
 
 #CC=g++
@@ -27,7 +30,7 @@ all:$(EXE).out
 	mkdir -p ../results/spectrum/conditionNumbers
 
 $(EXE).o:$(EXE).cpp 
-	$(CXX) $(OMPFLAGS) -c $(CFLAGS) -o $@ $<
+	$(CXX) $(OMPFLAGS) -c $(CFLAGS) $(INCDIR) -o $@ $<
 
 $(CONFIG).o:$(CONFIG).cpp
 	$(CXX) $(OMPFLAGS) -c $(CFLAGS) $(INCDIR) -o $@ $<

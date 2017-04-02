@@ -73,7 +73,7 @@ zticks = np.logspace(np.log10(zlimEig[0]), np.log10(zlimEig[1]),
 
 
 # Read grid
-nx0Rng = np.arange(50, 501, 50)
+nx0Rng = np.arange(100, 501, 100)
 #nx0Rng = np.arange(100, 501, 50)
 nGrids = nx0Rng.shape[0]
 eigValGen = np.empty((nGrids, cfg.spectrum.nev), dtype=complex)

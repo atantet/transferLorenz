@@ -39,7 +39,8 @@
 #include <AnasaziBasicOutputManager.hpp>
 #include "Teuchos_LAPACK.hpp"
 #include "Teuchos_StandardCatchMacros.hpp"
-
+// HDF5 support
+#include <EpetraExt_HDF5.h>
 
 /** \file transfer.cpp
  *  \brief Get transition matrices and distributions directly from time series.
@@ -88,7 +89,6 @@ int main(int argc, char * argv[])
   typedef SCT::magnitudeType               MagnitudeType;
   typedef Epetra_MultiVector MV;
   typedef Epetra_Operator OP;
-  typedef Anasazi::MultiVecTraits<ScalarType, MV> MVT;
   
 #ifdef HAVE_MPI
   // Initialize MPI
@@ -182,12 +182,13 @@ int main(int argc, char * argv[])
 
     // Transfer operator declarations
     char postfix[256], srcPostfix[256], dstGridPostfix[256];
-    char gridFileName[256], EigValForwardFileName[256], EigVecForwardFileName[256];
+    char gridFileName[256], EigValForwardFileName[256],
+      EigVecForwardFileName[256];
     sprintf(srcPostfix, "_%s", caseName);
     sprintf(gridFileName, "%s/grid/grid%s%s.txt", resDir, srcPostfix,
 	    gridPostfix);
     sprintf(dstGridPostfix, "%s%s_rho%04d_L%d_dt%d_nTraj%d_nProc%d",
-	    srcPostfix, gridPostfix, (int) (rho * 100 + 0.1),
+	    srcPostfix, gridPostfix, (int) (p["rho"] * 100 + 0.1),
 	    (int) (tau * 1000),
 	    (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)+0.1), nTraj, NumProc);
     sprintf(postfix, "%s", dstGridPostfix);
@@ -195,7 +196,7 @@ int main(int argc, char * argv[])
 	    "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
 	    resDir, nev, postfix, fileFormat);
     sprintf(EigVecForwardFileName,
-	    "%s/spectrum/eigval/eigvecBackward_nev%d%s.%s",
+	    "%s/spectrum/eigvec/eigvecForward_nev%d%s.h5",
 	    resDir, nev, postfix, fileFormat);
 
     // Set random number generator
@@ -254,7 +255,7 @@ int main(int argc, char * argv[])
       gsl_vector *maxBox = gsl_vector_alloc(dim);
     
       // Define field
-      vectorField *field = new Lorenz63(rho, sigma, beta);
+      vectorField *field = new Lorenz63(&p);
       // Define numerical scheme
       numericalScheme *scheme = new RungeKutta4(dim);
       // Define model (the initial state will be assigned later)
@@ -426,12 +427,16 @@ int main(int argc, char * argv[])
 	fb.close();
 	  
 	// Print eigenvectors
-	if (getForwardEigenvectors)
-	  {
-	    Teuchos::RCP<MV> evecs = sol.Evecs;
-	    EpetraExt::MultiVectorToMatrixMarketFile(EigVecForwardFileName,
-						     *evecs);
-	  }
+	if (getForwardEigenvectors) {
+	  if (MyPID == 0)
+	    std::cout << "Writing forward eigenvectors..." << std::endl;
+	  MV *evecs = sol.Evecs.get();
+	  evecs->Print(std::cout);
+	  EpetraExt::HDF5 HDF5(Comm);
+	  HDF5.Create(EigVecForwardFileName);
+	  HDF5.Write("eigvecForward", *evecs);
+	  HDF5.Close();
+	}
       }
     success = true;
   }
@@ -463,7 +468,7 @@ sphere2Cart(gsl_vector *X)
   theta = gsl_vector_get(X, 1);    
   phi = gsl_vector_get(X, 2);
 
-  r *= rho + sigma;
+  r *= p["rho"] + p["sigma"];
   
   x = r * sin(theta) * cos(phi);
   y = r * sin(theta) * sin(phi);
@@ -471,14 +476,14 @@ sphere2Cart(gsl_vector *X)
 
   gsl_vector_set(X, 0, x);
   gsl_vector_set(X, 1, y);
-  gsl_vector_set(X, 2, z + rho + sigma);
+  gsl_vector_set(X, 2, z + p["rho"] + p["sigma"]);
   
   return;
 }
 
 /** 
  * Conversion from Cartesian to spherical coordinates
- * centered at (0, 0, rho + sigma) and of unit radius rho + sigma.
+ * centered at (0, 0, p["rho"] + p["sigma"]) and of unit radius p["rho"] + p["sigma"].
  * \param[inout] x Coordinates of vector to convert.
  */
 void
@@ -489,12 +494,12 @@ cart2Sphere(gsl_vector *X)
 
   x = gsl_vector_get(X, 0);
   y = gsl_vector_get(X, 1);    
-  z = gsl_vector_get(X, 2) - (rho + sigma);
+  z = gsl_vector_get(X, 2) - (p["rho"] + p["sigma"]);
 
   r = sqrt(gsl_pow_2(x) + gsl_pow_2(y) + gsl_pow_2(z));
   theta = acos(z / r);
   phi = atan2(y, x);
-  r /= rho + sigma;
+  r /= p["rho"] + p["sigma"];
 
 
   gsl_vector_set(X, 0, r);
@@ -530,7 +535,8 @@ getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
 
 
 void
-getBoxBoundaries(const size_t box0, const gsl_vector_uint *nx, const Grid *grid,
+getBoxBoundaries(const size_t box0, const gsl_vector_uint *nx,
+		 const Grid *grid,
 		 gsl_vector *minBox, gsl_vector *maxBox)
 {
   size_t dim = nx->size;
@@ -542,7 +548,7 @@ getBoxBoundaries(const size_t box0, const gsl_vector_uint *nx, const Grid *grid,
     gsl_vector_set(minBox, d,
 		   gsl_vector_get(grid->bounds->at(d),
 				  gsl_vector_uint_get(multiIdx, d)));
-    
+
     // Get upper limit of box0 for dim d from grid bounds
     gsl_vector_set(maxBox, d,
 		   gsl_vector_get(grid->bounds->at(d),
