@@ -1,0 +1,41 @@
+# Import trilinos variables
+include $(TRILINOS_BUILD)/Makefile.export.Trilinos_install
+
+TRILINOS_LIB=-lepetraext -lepetra
+
+LIBS=-lgsl -lconfig++ -lergopack -lgomp $(TRILINOS_LIB)
+CONFIG=../cfg/readConfig
+
+#CC=g++
+CXX=$(Trilinos_CXX_COMPILER)
+OMPFLAGS=-fopenmp
+#WARN=-Wall -Wformat=0
+#CFLAGS=$(WARN) -pedantic-errors -O3
+CFLAGS=$(Trilinos_CXX_COMPILER_FLAGS) 
+LDFLAGSSTD=-undefined dynamic_lookup
+LDFLAGSGDB=$(LDFLAGSSTD) -gdb
+
+LDFLAGS=$(LDFLAGSSTD)
+#LDFLAGS=$(LDFLAGSGDB)
+
+EXE=simTransferEpetra
+
+all:$(EXE).out
+	mkdir -p ../results/spectrum/eigval
+	mkdir -p ../results/spectrum/eigvec
+	mkdir -p ../results/spectrum/conditionNumbers
+
+$(EXE).o:$(EXE).cpp 
+	$(CXX) $(OMPFLAGS) -c $(CFLAGS) -o $@ $<
+
+$(CONFIG).o:$(CONFIG).cpp
+	$(CXX) $(OMPFLAGS) -c $(CFLAGS) $(INCDIR) -o $@ $<
+
+$(EXE).out:$(EXE).o $(CONFIG).o
+	$(CXX) $(OMPFLAGS) $(LDFLAGS) -o $@ $^ $(LIBDIR) $(LIBS)
+
+clean:
+	rm -f $(EXE).o $(EXE).out
+
+cleanall:
+	rm -f $(EXE).o $(CONFIG).o $(EXE).out

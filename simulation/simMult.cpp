@@ -151,7 +151,7 @@ int main(int argc, char * argv[])
 
       // Numerical integration
       std::cout << "Integrating trajectory..." << std::endl;
-      mod->integrate(L, dt, 0., printStepNum, &X);
+      mod->integrate(LCut, dt, 0., printStepNum, &X);
 
       // Write results
 #pragma omp critical
