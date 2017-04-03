@@ -29,25 +29,52 @@
 int main(int argc, char * argv[])
 {
   // Read configuration file
-  if (argc < 2)
-    {
-      std::cout << "Enter path to configuration file:" << std::endl;
-      std::cin >> configFileName;
-    }
+  if (argc < 2) {
+    std::cout << "Enter path to configuration file:" << std::endl;
+    std::cin >> configFileName;
+  }
   else
-    {
-      strcpy(configFileName, argv[1]);
-    }
-  try
-   {
-     readConfig(configFileName);
-    }
-  catch (...)
-    {
-      std::cerr << "Error reading configuration file" << std::endl;
-      return(EXIT_FAILURE);
-    }
-  
+    strcpy(configFileName, argv[1]);
+  try {
+    Config cfg;
+    std::cout << "Sparsing config file " << configFileName << std::endl;
+    cfg.readFile(configFileName);
+    readGeneral(&cfg);
+    readModel(&cfg);
+    readSimulation(&cfg);
+    readSprinkle(&cfg);
+    readGrid(&cfg);
+    readTransfer(&cfg);
+    std::cout << "Sparsing success.\n" << std::endl;
+  }
+  catch(const SettingTypeException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " type exception."
+	      << std::endl;
+    throw ex;
+  }
+  catch(const SettingNotFoundException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " not found." << std::endl;
+    throw ex;
+  }
+  catch(const SettingNameException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " name exception."
+	      << std::endl;
+    throw ex;
+  }
+  catch(const ParseException &ex) {
+    std::cerr << "Parse error at " << ex.getFile() << ":" << ex.getLine()
+              << " - " << ex.getError() << std::endl;
+    throw ex;
+  }
+  catch(const FileIOException &ex) {
+    std::cerr << "I/O error while reading configuration file." << std::endl;
+    throw ex;
+  }
+  catch (...) {
+    std::cerr << "Error reading configuration file" << std::endl;
+    return(EXIT_FAILURE);
+  }
+
   // Declarations
   // Transfer
   double tau;

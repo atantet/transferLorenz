@@ -112,7 +112,7 @@ int main(int argc, char * argv[])
   // Transfer operator declarations
   char forwardTransitionFileName[256], initDistFileName[256],
     backwardTransitionFileName[256], finalDistFileName[256],
-    postfix[256], maskFileName[256], srcPostfix[256];
+    postfix[256], maskFileName[256], srcPostfix[256], srcPostfixTraj[256];
 
   size_t tauNum;
   double tau;
@@ -159,13 +159,15 @@ int main(int argc, char * argv[])
     sprintf(gridFileName, "%s/grid/grid_%s%s.txt", resDir, caseName,
 	    gridPostfix);
     grid->printGrid(gridFileName, "%.12lf", true);
-    
+    sprintf(srcPostfixTraj, "%s_nTraj%d%s", srcPostfix, (int) nTraj,
+	    gridPostfix);
 
+    
     // Get grid membership for each traj
     for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
       // Grid membership file name
-      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s%s.%s",
-	      resDir, srcPostfix, gridPostfix, fileFormat);
+      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
+	      resDir, srcPostfixTraj, fileFormat);
   
       // Open grid membership vector stream
       if ((gridMemStream = fopen(gridMemFileName, "w")) == NULL) {
@@ -197,8 +199,8 @@ int main(int argc, char * argv[])
     // Read grid membership for each traj
     for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
       // Grid membership file name
-      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s%s.%s",
-	      resDir, srcPostfix, gridPostfix, fileFormat);
+      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
+	      resDir, srcPostfixTraj, fileFormat);
 	  
       // Open grid membership stream for reading
       std::cout << "Reading grid membership vector for traj "
@@ -226,8 +228,7 @@ int main(int argc, char * argv[])
   // Get transition matrices for different lags
   tau = gsl_vector_get(tauRng, 0);
   tauNum = (size_t) round(tau / printStep + 0.1);
-  sprintf(postfix, "%s%s_tau%03d", srcPostfix, gridPostfix,
-	  (int) (tau * 1000));
+  sprintf(postfix, "%s_tau%03d", srcPostfixTraj, (int) (tau * 1000));
 
   std::cout << "\nConstructing transfer operator for a lag of "
 	    << tau << std::endl;
@@ -255,13 +256,13 @@ of membership vecotrs..." << std::endl;
 				     fileFormat, "%.12lf");
 
   // Write mask and initial distribution
-  sprintf(maskFileName, "%s/transfer/mask/mask%s%s.%s",
-	  resDir, srcPostfix, gridPostfix, fileFormat);
+  sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
+	  resDir, srcPostfixTraj, fileFormat);
   transferOp->printMask(maskFileName,
 			fileFormat, "%.12lf");
 
-  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s%s.%s",
-	  resDir, srcPostfix, gridPostfix, fileFormat);
+  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
+	  resDir, srcPostfixTraj, fileFormat);
   transferOp->printInitDist(initDistFileName,
 			    fileFormat, "%.12lf");
       
