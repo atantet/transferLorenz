@@ -130,27 +130,40 @@ int main(int argc, char * argv[])
 				      gsl_vector_get(maxInitState, d)));
 
 	// Set initial state
-	printf("\nSetting initial state to (%.1lf, %.1lf, %.1lf)\n",
-	       gsl_vector_get(init, 0),
-	       gsl_vector_get(init, 1),
-	       gsl_vector_get(init, 2));
+#pragma omp critical
+	{
+	  printf("Setting initial state to (%.1lf, %.1lf, %.1lf)\n",
+		 gsl_vector_get(init, 0),
+		 gsl_vector_get(init, 1),
+		 gsl_vector_get(init, 2));
+	}
 	mod->setCurrentState(init);
 
 	// Numerical integration of spinup
-	std::cout << "Integrating spinup..." << std::endl;
+#pragma omp critical
+	{
+	  std::cout << "Integrating spinup..." << std::endl;
+	}
 	X = gsl_matrix_alloc(1, 1); // Fake allocation
 	mod->integrate(init, spinup, dt, 0., printStepNum, &X);
 
 	// Check if stationary point
-	if (isStationaryPoint(X, 0.1, printStep, 1.e-8))
-	  std::cout << "Trajectory converged to stationary point. Continue..."
-		    << std::endl;
+	if (isStationaryPoint(X, 0.1, printStep, 1.e-8)) {
+#pragma omp critical
+	  {
+	    std::cout << "Trajectory converged to point. Continue..."
+		      << std::endl;
+	  }
+	}
 	else
 	  stat = false;
       }
 
       // Numerical integration
-      std::cout << "Integrating trajectory..." << std::endl;
+#pragma omp critical
+      {
+	std::cout << "Integrating trajectory..." << std::endl;
+      }
       mod->integrate(LCut, dt, 0., printStepNum, &X);
 
       // Write results

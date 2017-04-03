@@ -34,6 +34,10 @@
  */
 
 
+/** \brief Conversion from Cartesian to spherical coordinates. */
+void cart2Sphere(gsl_vector *x);
+void cart2Sphere(gsl_matrix *x);
+
 /** \brief Calculate transfer operators from time series.
  *
  *  After parsing the configuration file,
@@ -112,7 +116,7 @@ int main(int argc, char * argv[])
   // Transfer operator declarations
   char forwardTransitionFileName[256], initDistFileName[256],
     backwardTransitionFileName[256], finalDistFileName[256],
-    postfix[256], maskFileName[256], srcPostfix[256], srcPostfixTraj[256];
+    maskFileName[256], srcPostfix[256], dstPostfix[256], dstPostfixTau[256];
 
   size_t tauNum;
   double tau;
@@ -147,9 +151,12 @@ int main(int argc, char * argv[])
 	gsl_matrix_fread(srcStream, statesTraj[traj]);
       else
 	gsl_matrix_fscanf(srcStream, statesTraj[traj]);
-      
+
       // Close trajectory file
       fclose(srcStream);
+
+      // Convert to spherical coordinates
+      cart2Sphere(statesTraj[traj]);
     }
 
     // Define grid
@@ -159,7 +166,7 @@ int main(int argc, char * argv[])
     sprintf(gridFileName, "%s/grid/grid_%s%s.txt", resDir, caseName,
 	    gridPostfix);
     grid->printGrid(gridFileName, "%.12lf", true);
-    sprintf(srcPostfixTraj, "%s_nTraj%d%s", srcPostfix, (int) nTraj,
+    sprintf(dstPostfix, "%s_nTraj%d%s", srcPostfix, (int) nTraj,
 	    gridPostfix);
 
     
@@ -167,7 +174,7 @@ int main(int argc, char * argv[])
     for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
       // Grid membership file name
       sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
-	      resDir, srcPostfixTraj, fileFormat);
+	      resDir, dstPostfix, fileFormat);
   
       // Open grid membership vector stream
       if ((gridMemStream = fopen(gridMemFileName, "w")) == NULL) {
@@ -200,7 +207,7 @@ int main(int argc, char * argv[])
     for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
       // Grid membership file name
       sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
-	      resDir, srcPostfixTraj, fileFormat);
+	      resDir, dstPostfix, fileFormat);
 	  
       // Open grid membership stream for reading
       std::cout << "Reading grid membership vector for traj "
@@ -228,7 +235,7 @@ int main(int argc, char * argv[])
   // Get transition matrices for different lags
   tau = gsl_vector_get(tauRng, 0);
   tauNum = (size_t) round(tau / printStep + 0.1);
-  sprintf(postfix, "%s_tau%03d", srcPostfixTraj, (int) (tau * 1000));
+  sprintf(dstPostfixTau, "%s_tau%03d", dstPostfix, (int) (tau * 1000));
 
   std::cout << "\nConstructing transfer operator for a lag of "
 	    << tau << std::endl;
@@ -251,18 +258,18 @@ of membership vecotrs..." << std::endl;
 	    << std::endl;
   sprintf(forwardTransitionFileName,
 	  "%s/transfer/forwardTransition/forwardTransition%s.crs%s",
-	  resDir, postfix, fileFormat);
+	  resDir, dstPostfixTau, fileFormat);
   transferOp->printForwardTransition(forwardTransitionFileName,
 				     fileFormat, "%.12lf");
 
   // Write mask and initial distribution
   sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
-	  resDir, srcPostfixTraj, fileFormat);
+	  resDir, dstPostfix, fileFormat);
   transferOp->printMask(maskFileName,
 			fileFormat, "%.12lf");
 
   sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
-	  resDir, srcPostfixTraj, fileFormat);
+	  resDir, dstPostfix, fileFormat);
   transferOp->printInitDist(initDistFileName,
 			    fileFormat, "%.12lf");
       
@@ -271,15 +278,15 @@ of membership vecotrs..." << std::endl;
     std::cout << "Writing backward transition matrix \
 and final distribution..." << std::endl;
     sprintf(backwardTransitionFileName,
-	    "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
-	    resDir, postfix, fileFormat);
+	    "%s/transfer/backwardTransition/backwardTransition%s.crs%s",
+	    resDir, dstPostfixTau, fileFormat);
     transferOp->printBackwardTransition(backwardTransitionFileName,
 					fileFormat, "%.12lf");
 
     // Write final distribution 
     sprintf(finalDistFileName,
 	    "%s/transfer/finalDist/finalDist%s.%s",
-	    resDir, postfix, fileFormat);
+	    resDir, dstPostfixTau, fileFormat);
     transferOp->printFinalDist(finalDistFileName,
 			       fileFormat, "%.12lf");
   }
@@ -295,4 +302,47 @@ and final distribution..." << std::endl;
 		
   return 0;
 }
+
+/** 
+ * Conversion from Cartesian to spherical coordinates
+ * centered at (0, 0, p["rho"] + p["sigma"]) and of unit radius p["rho"] + p["sigma"].
+ * \param[inout] x Coordinates of vector to convert.
+ */
+void
+cart2Sphere(gsl_vector *X)
+{
+  double r, theta, phi;
+  double x, y, z;
+
+  x = gsl_vector_get(X, 0);
+  y = gsl_vector_get(X, 1);    
+  z = gsl_vector_get(X, 2) - (p["rho"] + p["sigma"]);
+
+  r = sqrt(gsl_pow_2(x) + gsl_pow_2(y) + gsl_pow_2(z));
+  theta = acos(z / r);
+  phi = atan2(y, x);
+  r /= p["rho"] + p["sigma"];
+
+
+  gsl_vector_set(X, 0, r);
+  gsl_vector_set(X, 1, theta);
+  gsl_vector_set(X, 2, phi);
+  
+  return;
+}
+
+
+void
+cart2Sphere(gsl_matrix *X)
+{
+  gsl_vector_view row;
+  
+  for (size_t k = 0; k < X->size1; k++) {
+    row = gsl_matrix_row(X, k);
+    cart2Sphere(&row.vector);
+  }
+
+  return;
+}
+
 

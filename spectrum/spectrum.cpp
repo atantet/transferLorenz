@@ -45,6 +45,7 @@ int main(int argc, char * argv[])
     readSprinkle(&cfg);
     readGrid(&cfg);
     readTransfer(&cfg);
+    readSpectrum(&cfg);
     std::cout << "Sparsing success.\n" << std::endl;
   }
   catch(const SettingTypeException &ex) {
@@ -80,7 +81,7 @@ int main(int argc, char * argv[])
   double tau;
   char forwardTransitionFileName[256], initDistFileName[256],
     backwardTransitionFileName[256], finalDistFileName[256],
-    maskFileName[256], postfix[256];
+    maskFileName[256], srcPostfix[256], dstPostfix[256], dstPostfixTau[256];
   transferOperator *transferOp;
   gsl_vector *initDist, *finalDist;
   gsl_vector_uint *mask;
@@ -91,194 +92,178 @@ int main(int argc, char * argv[])
   transferSpectrum *transferSpec;
 
   
-  // Scan matrices and distributions for different lags
-  for (size_t lag = 0; lag < nLags; lag++)
+  tau = gsl_vector_get(tauRng, 0);
+  std::cout << "\nGetting spectrum for a lag of " << tau << std::endl;
+
+  sprintf(srcPostfix, "_%s_rho%04d_L%d_spinup%d_dt%d_samp%d", caseName,
+	  (int) (p["rho"] * 100 + 0.1), (int) L, (int) spinup,
+	  (int) (round(-gsl_sf_log(dt)/gsl_sf_log(10)) + 0.1),
+	  (int) printStepNum);
+  sprintf(dstPostfix, "%s_nTraj%d%s", srcPostfix, (int) nTraj,
+	  gridPostfix);
+  sprintf(dstPostfixTau, "%s_tau%03d", dstPostfix, (int) (tau * 1000));
+  
+  // Get file names
+  sprintf(forwardTransitionFileName, \
+	  "%s/transfer/forwardTransition/forwardTransition%s.crs%s",
+	  resDir, dstPostfixTau, fileFormat);
+  sprintf(backwardTransitionFileName, \
+	  "%s/transfer/backwardTransition/backwardTransition%s.crs%s",
+	  resDir, dstPostfixTau, fileFormat);
+  sprintf(EigValForwardFileName,
+	  "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
+	  resDir, nev, dstPostfixTau, fileFormat);
+  sprintf(EigValForwardFileName,
+	  "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
+	  resDir, nev, dstPostfixTau, fileFormat);
+  sprintf(EigVecForwardFileName,
+	  "%s/spectrum/eigvec/eigvecForward_nev%d%s.%s",
+	  resDir, nev, dstPostfixTau, fileFormat);
+  sprintf(EigValBackwardFileName,
+	  "%s/spectrum/eigval/eigvalBackward_nev%d%s.%s",
+	  resDir, nev, dstPostfixTau, fileFormat);
+  sprintf(EigVecBackwardFileName,
+	  "%s/spectrum/eigvec/eigvecBackward_nev%d%s.%s",
+	  resDir, nev, dstPostfixTau, fileFormat);
+
+  // Read transfer operator
+  std::cout << "Reading stationary transfer operator..." << std::endl;
+  try
     {
-      tau = gsl_vector_get(tauRng, lag);
-      std::cout << "\nGetting spectrum for a lag of " << tau << std::endl;
-
-      // Get file names
-      sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tau * 1000));
-      sprintf(forwardTransitionFileName, \
-	      "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
-	      resDir, postfix, fileFormat);
-      sprintf(backwardTransitionFileName, \
-	      "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
-	      resDir, postfix, fileFormat);
-      sprintf(EigValForwardFileName,
-	      "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
-	      resDir, nev, postfix, fileFormat);
-      sprintf(EigValForwardFileName,
-	      "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
-	      resDir, nev, postfix, fileFormat);
-      sprintf(EigVecForwardFileName,
-	      "%s/spectrum/eigvec/eigvecForward_nev%d%s.%s",
-	      resDir, nev, postfix, fileFormat);
-      sprintf(EigValBackwardFileName,
-	      "%s/spectrum/eigval/eigvalBackward_nev%d%s.%s",
-	      resDir, nev, postfix, fileFormat);
-      sprintf(EigVecBackwardFileName,
-	      "%s/spectrum/eigvec/eigvecBackward_nev%d%s.%s",
-	      resDir, nev, postfix, fileFormat);
-
-      // Read transfer operator
-      std::cout << "Reading stationary transfer operator..." << std::endl;
-      try
-	{
-	  /** Construct transfer operator without allocating memory
-	      to the distributions (only to the mask) ! */
-	  transferOp = new transferOperator(N, stationary);
+      /** Construct transfer operator without allocating memory
+	  to the distributions (only to the mask) ! */
+      transferOp = new transferOperator(N, stationary);
 	    
-	  // Scan forward transition matrix (this sets NFilled)
-	  std::cout << "Scanning forward transition matrix from "
-		    << forwardTransitionFileName << std::endl;
-	  transferOp->scanForwardTransition(forwardTransitionFileName,
-					    fileFormat);
+      // Scan forward transition matrix (this sets NFilled)
+      std::cout << "Scanning forward transition matrix from "
+		<< forwardTransitionFileName << std::endl;
+      transferOp->scanForwardTransition(forwardTransitionFileName,
+					fileFormat);
 
-	  // Scan mask for the first lag
-	  if (lag == 0)
-	    {
-	      sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
-		      resDir, gridPostfix, fileFormat);
-	      std::cout << "Scanning mask from "
-			<< maskFileName << std::endl;
-	      transferOp->scanMask(maskFileName, fileFormat);
+      // Scan mask for the first lag
+      sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
+	      resDir, dstPostfix, fileFormat);
+      std::cout << "Scanning mask from "
+		<< maskFileName << std::endl;
+      transferOp->scanMask(maskFileName, fileFormat);
 
-	      // Save mask
-	      mask = gsl_vector_uint_alloc(transferOp->getN());
-	      gsl_vector_uint_memcpy(mask, transferOp->mask);
-	    }
+      // Save mask
+      mask = gsl_vector_uint_alloc(transferOp->getN());
+      gsl_vector_uint_memcpy(mask, transferOp->mask);
 
-	  // Allocate memory to distributions
-	  transferOp->allocateDist();
+      // Allocate memory to distributions
+      transferOp->allocateDist();
 
-	  // Scan initial distribution for the first lag
-	  if (lag == 0)
-	    {
-	      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
-		      resDir, gridPostfix, fileFormat);
-	      std::cout << "Scanning initial distribution from "
-			<< initDistFileName << std::endl;
-	      transferOp->scanInitDist(initDistFileName,
-				       fileFormat);
+      // Scan initial distribution for the first lag
+      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
+	      resDir, dstPostfix, fileFormat);
+      std::cout << "Scanning initial distribution from "
+		<< initDistFileName << std::endl;
+      transferOp->scanInitDist(initDistFileName,
+			       fileFormat);
 
-	      // Save initial distribution
-	      initDist = gsl_vector_alloc(transferOp->getNFilled());
-	      gsl_vector_memcpy(initDist, transferOp->initDist);
-	    }
-	  else
-	    {
-	      transferOp->setMask(mask);
-	      transferOp->setInitDist(initDist);
-	    }
+      // Save initial distribution
+      initDist = gsl_vector_alloc(transferOp->getNFilled());
+      gsl_vector_memcpy(initDist, transferOp->initDist);
 	  
-	  if (!stationary)
-	    {
-	      // Scan backward transition matrix
-	      std::cout << "Scanning backward transition matrix from "
-			<< backwardTransitionFileName << std::endl;
-	      transferOp->scanBackwardTransition(backwardTransitionFileName,
-						 fileFormat);
+      if (!stationary) {
+	// Scan backward transition matrix
+	std::cout << "Scanning backward transition matrix from "
+		  << backwardTransitionFileName << std::endl;
+	transferOp->scanBackwardTransition(backwardTransitionFileName,
+					   fileFormat);
 
-	      // Only scan final distribution for the first lag
-	      if (lag == 0)
-		{
-		  sprintf(finalDistFileName,
-			  "%s/transfer/finalDist/finalDist%s.%s",
-			  resDir, gridPostfix, fileFormat);
-		  std::cout << "Scanning final distribution from "
-			    << finalDistFileName << std::endl;
-		  transferOp->scanFinalDist(finalDistFileName,
-					    fileFormat);
-
-		  // Save final distribution
-		  finalDist = gsl_vector_alloc(transferOp->getNFilled());
-		  gsl_vector_memcpy(finalDist, transferOp->finalDist);
-		}
-	      else
-		transferOp->setFinalDist(finalDist);
-	    }
-	}
-      catch (std::exception &ex)
-	{
-	  std::cerr << "Error reading transfer operator: " << ex.what()
-		    << std::endl;
-	  return EXIT_FAILURE;
-	}
+	// Only scan final distribution for the first lag
+	sprintf(finalDistFileName,
+		"%s/transfer/finalDist/finalDist%s.%s",
+		resDir, dstPostfixTau, fileFormat);
+	std::cout << "Scanning final distribution from "
+		  << finalDistFileName << std::endl;
+	transferOp->scanFinalDist(finalDistFileName,
+				  fileFormat);
+	  
+	// Save final distribution
+	finalDist = gsl_vector_alloc(transferOp->getNFilled());
+	gsl_vector_memcpy(finalDist, transferOp->finalDist);
+      }
+    }
+  catch (std::exception &ex)
+    {
+      std::cerr << "Error reading transfer operator: " << ex.what()
+		<< std::endl;
+      return EXIT_FAILURE;
+    }
 
       
-      // Get spectrum
-      try
-	{
-	  // Solve eigen value problem with default configuration
-	  transferSpec = new transferSpectrum(nev, transferOp, config);
+  // Get spectrum
+  try
+    {
+      // Solve eigen value problem with default configuration
+      transferSpec = new transferSpectrum(nev, transferOp, config);
 
-	  if (getForwardEigenvectors)
-	    {
-	      std::cout << "Solving eigen problem for forward transition matrix..."
-			<< std::endl;
-	      transferSpec->getSpectrumForward();
-	      std::cout << "Found "
-			<< transferSpec->getNev()
-			<< "/" << nev << " eigenvalues." << std::endl;
-	    }
-	  if (getBackwardEigenvectors)
-	    {
-	      std::cout << "Solving eigen problem for backward transition matrix..."
-			<< std::endl;
-	      transferSpec->getSpectrumBackward();
-	      std::cout << "Found "
-			<< transferSpec->getNev()
-			<< "/" << nev << " eigenvalues." << std::endl;
-	    }
-	  if (getForwardEigenvectors
-	      && getBackwardEigenvectors
-	      && makeBiorthonormal)
-	    {
-	      std::cout << "Making set of forward and backward eigenvectors \
+      if (getForwardEigenvectors)
+	{
+	  std::cout << "Solving eigen problem for forward transition matrix..."
+		    << std::endl;
+	  transferSpec->getSpectrumForward();
+	  std::cout << "Found "
+		    << transferSpec->getNev()
+		    << "/" << nev << " eigenvalues." << std::endl;
+	}
+      if (getBackwardEigenvectors)
+	{
+	  std::cout << "Solving eigen problem for backward transition matrix..."
+		    << std::endl;
+	  transferSpec->getSpectrumBackward();
+	  std::cout << "Found "
+		    << transferSpec->getNev()
+		    << "/" << nev << " eigenvalues." << std::endl;
+	}
+      if (getForwardEigenvectors
+	  && getBackwardEigenvectors
+	  && makeBiorthonormal)
+	{
+	  std::cout << "Making set of forward and backward eigenvectors \
 biorthonormal..."
-			<< std::endl;
-	      transferSpec->makeBiorthonormal();
-	    }
+		    << std::endl;
+	  transferSpec->makeBiorthonormal();
 	}
-      catch (std::exception &ex)
-	{
-	  std::cerr << "Error calculating spectrum: " << ex.what() << std::endl;
-	  return EXIT_FAILURE;
-	}
+    }
+  catch (std::exception &ex)
+    {
+      std::cerr << "Error calculating spectrum: " << ex.what() << std::endl;
+      return EXIT_FAILURE;
+    }
   
-      // Write spectrum 
-      try
+  // Write spectrum 
+  try
+    {
+      if (getForwardEigenvectors)
 	{
-	  if (getForwardEigenvectors)
-	    {
-	      std::cout << "Writing forward eigenvalues and eigenvectors..."
-			<< std::endl;
-	      transferSpec->writeSpectrumForward(EigValForwardFileName,
-						 EigVecForwardFileName,
-						 fileFormat);
-	    }
-	  if (getBackwardEigenvectors)
-	    {
-	      std::cout << "Writing backward eigenvalues and eigenvectors..."
-			<< std::endl;
-	      transferSpec->writeSpectrumBackward(EigValBackwardFileName,
-						  EigVecBackwardFileName,
-						  fileFormat);
-	    }
+	  std::cout << "Writing forward eigenvalues and eigenvectors..."
+		    << std::endl;
+	  transferSpec->writeSpectrumForward(EigValForwardFileName,
+					     EigVecForwardFileName,
+					     fileFormat);
 	}
-      catch (std::exception &ex)
+      if (getBackwardEigenvectors)
 	{
-	  std::cerr << "Error writing spectrum: " << ex.what() << std::endl;
-	  return EXIT_FAILURE;
+	  std::cout << "Writing backward eigenvalues and eigenvectors..."
+		    << std::endl;
+	  transferSpec->writeSpectrumBackward(EigValBackwardFileName,
+					      EigVecBackwardFileName,
+					      fileFormat);
 	}
+    }
+  catch (std::exception &ex)
+    {
+      std::cerr << "Error writing spectrum: " << ex.what() << std::endl;
+      return EXIT_FAILURE;
+    }
 
-      // Free
-      delete transferSpec;
-      delete transferOp;
-  }
-
-  // Free                                                                                                                                                                                                                                  
+  // Free
+  delete transferSpec;
+  delete transferOp;
   freeConfig();
   if (initDist)
     gsl_vector_free(initDist);
