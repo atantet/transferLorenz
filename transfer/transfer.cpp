@@ -164,8 +164,8 @@ int main(int argc, char * argv[])
     // Get grid membership for each traj
     for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
       // Grid membership file name
-      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
-	      resDir, gridPostfix, fileFormat);
+      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s%s.%s",
+	      resDir, srcPostfix, gridPostfix, fileFormat);
   
       // Open grid membership vector stream
       if ((gridMemStream = fopen(gridMemFileName, "w")) == NULL) {
@@ -197,8 +197,8 @@ int main(int argc, char * argv[])
     // Read grid membership for each traj
     for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
       // Grid membership file name
-      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
-	      resDir, gridPostfix, fileFormat);
+      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s%s.%s",
+	      resDir, srcPostfix, gridPostfix, fileFormat);
 	  
       // Open grid membership stream for reading
       std::cout << "Reading grid membership vector for traj "
@@ -226,7 +226,8 @@ int main(int argc, char * argv[])
   // Get transition matrices for different lags
   tau = gsl_vector_get(tauRng, 0);
   tauNum = (size_t) round(tau / printStep + 0.1);
-  sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tau * 1000));
+  sprintf(postfix, "%s%s_tau%03d", srcPostfix, gridPostfix,
+	  (int) (tau * 1000));
 
   std::cout << "\nConstructing transfer operator for a lag of "
 	    << tau << std::endl;
@@ -248,19 +249,19 @@ of membership vecotrs..." << std::endl;
   std::cout << "Writing forward transition matrix and initial distribution..."
 	    << std::endl;
   sprintf(forwardTransitionFileName,
-	  "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
+	  "%s/transfer/forwardTransition/forwardTransition%s.crs%s",
 	  resDir, postfix, fileFormat);
   transferOp->printForwardTransition(forwardTransitionFileName,
 				     fileFormat, "%.12lf");
 
   // Write mask and initial distribution
-  sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
-	  resDir, gridPostfix, fileFormat);
+  sprintf(maskFileName, "%s/transfer/mask/mask%s%s.%s",
+	  resDir, srcPostfix, gridPostfix, fileFormat);
   transferOp->printMask(maskFileName,
 			fileFormat, "%.12lf");
 
-  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
-	  resDir, gridPostfix, fileFormat);
+  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s%s.%s",
+	  resDir, srcPostfix, gridPostfix, fileFormat);
   transferOp->printInitDist(initDistFileName,
 			    fileFormat, "%.12lf");
       
