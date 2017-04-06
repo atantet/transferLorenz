@@ -34,9 +34,10 @@ embedding = (np.array(cfg.observable.embeddingDays) / 365 \
 rho = cfg.model.rho
 dim = cfg.model.dim
 dimObs = dim
-nProc = ''
+nProcName = ''
 if (hasattr(cfg.sprinkle, 'nProc')):
-    nProc = '_nProc' + str(cfg.sprinkle.nProc)
+    nProc = cfg.sprinkle.nProc
+    nProcName = '_nProc' + str(nProc)
 
 N = np.prod(np.array(cfg.grid.nx))
 gridPostfix = ""
@@ -51,7 +52,7 @@ for d in np.arange(dimObs):
                                         cfg.sprinkle.maxInitState[d])
 gridPostfix = "_%s%s" % (caseName, gridPostfix)
 
-nTrajRng = np.array([5, 10, 50, 100]) * 1e7
+nTrajRng = np.array([5, 10, 50, 100, 500, 1000]) * 1e6
 nCases = nTrajRng.shape[0]
 eigValGen = np.zeros((nCases, cfg.spectrum.nev), dtype=complex)
 aspect = np.array([1, 2, 1], dtype=int)
@@ -61,7 +62,7 @@ for k in np.arange(nCases):
                     % (gridPostfix, int(rho * 100 + 0.1),
                        int(tau * 1000 + 0.1),
                        -np.round(np.log10(cfg.simulation.dt)),
-                       nTraj, nProc)
+                       nTraj, nProcName)
 
     # Define file names
     postfix = "%s" % (srcPostfixSim,)
@@ -89,16 +90,17 @@ ls = ['-', '-']
 xticks = nTrajRng
 yticks = np.arange(-0.2, 0.01, 0.02)
 for ev in np.arange(nevPlot):
-    plt.plot(nTrajRng, eigValGen[:, ev].real, linewidth=lw,
-             linestyle=ls[ev%2])
-ax.set_xlabel(r'$n_d$', fontsize=ergoPlot.fs_latex)
+    plt.plot(nTrajRng * nProc, eigValGen[:, ev].real, linewidth=lw,
+             linestyle=ls[ev%2], marker='o')
+    ax.set_xlabel(r'$N_s$', fontsize=ergoPlot.fs_latex)
 ax.set_ylabel(r'$\Re(\lambda_k)$', fontsize=ergoPlot.fs_latex)
 plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
 plt.setp(ax.get_yticklabels(), fontsize=ergoPlot.fs_yticklabels)
 ax.set_xticks(xticks)
-ax.set_xlim(nTrajRng[0], nTrajRng[-1])
+ax.set_xlim(nTrajRng[0] * nProc, nTrajRng[-1] * nProc)
 ax.set_yticks(yticks)
 ax.set_ylim(yticks[0], yticks[-1] + 0.002)
+ax.set_xscale('log')
 plt.savefig('%s/spectrum/eigval/eigValSampCvg%s.%s'
             % (cfg.general.plotDir, postfix, ergoPlot.figFormat),
             dpi=ergoPlot.dpi, bbox_inches=ergoPlot.bbox_inches)

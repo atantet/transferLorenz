@@ -36,22 +36,21 @@ for d in np.arange(dimObs):
                                         cfg.sprinkle.minInitState[d],
                                         cfg.sprinkle.maxInitState[d])
 gridPostfix = "_%s%s" % (caseName, gridPostfix)
-simPostfix = "_L%d_dt%d_nTraj%d%s" \
-                % (int(tau * 1000 + 0.1),
-                   -np.round(np.log10(cfg.simulation.dt)),
-                   cfg.sprinkle.nTraj, nProc)
-
 rhoRng = np.arange(22., 26.01, 0.5)
-rhoRng = np.sort(np.concatenate((rhoRng, np.arange(24.1, 24.41, 0.1),
-                                 np.arange(24.6, 24.91, 0.1))))
+rhoRng = np.concatenate((rhoRng, np.arange(23.1, 24.91, 0.1)))
+rhoRng = np.unique((rhoRng * 10 + 0.1).astype(int)) * 1. / 10
 rhoRng = np.concatenate(([20, 21.], rhoRng, [27., 28.]))
+nTrajRng = np.ones((rhoRng.shape[0],), dtype=int) * 500000000
+nTrajRng[(rhoRng > 23.09) & (rhoRng < 23.99)] = 100000000
+nTrajRng[np.argmin(np.abs(rhoRng - 23.5))] = 500000000
 # gapRng = np.empty((rhoRng.shape[0],))
 eigValRng = np.empty((rhoRng.shape[0], cfg.spectrum.nev))
-dstPostfix = "%s_rhomin%04d_rhomax%04d%s" \
-             % (gridPostfix, int(rhoRng[0] * 100 + 0.1),
-                int(rhoRng[-1] * 100 + 0.1), simPostfix)
 for irho in np.arange(rhoRng.shape[0]):
     rho = rhoRng[irho]
+    simPostfix = "_L%d_dt%d_nTraj%d%s" \
+                 % (int(tau * 1000 + 0.1),
+                    -np.round(np.log10(cfg.simulation.dt)),
+                    nTrajRng[irho], nProc)
     srcPostfixSim = "%s_rho%04d%s" % (gridPostfix, int(rho * 100 + 0.1),
                                       simPostfix)
 
@@ -81,6 +80,9 @@ for irho in np.arange(rhoRng.shape[0]):
 
 
 # Plot
+dstPostfix = "%s_rhomin%04d_rhomax%04d%s" \
+             % (gridPostfix, int(rhoRng[0] * 100 + 0.1),
+                int(rhoRng[-1] * 100 + 0.1), simPostfix)
 nevPlot = 7
 ls = '-'
 mk = '+'

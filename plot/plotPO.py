@@ -116,11 +116,12 @@ for k in np.arange(nCont):
     exp = np.log10(contAbs)
     mantis = sign * np.exp(np.log(contAbs) / exp)
     dstPostfix = "%s_cont%04d_contStep%de%d_dt%d_numShoot%d" \
-                 % (srcPostfix, int(initCont[dim] * 1000 + 0.1), int(mantis*1.01),
-                    (int(exp*1.01)), -np.round(np.log10(dtRng[k])),
-                    cfg.continuation.numShoot)
+                 % (srcPostfix, int(initCont[dim] * 1000 + 0.1),
+                    int(mantis*1.01), (int(exp*1.01)),
+                    -np.round(np.log10(dtRng[k])), cfg.continuation.numShoot)
     poFileName = '%s/poCont%s.%s' % (contDir, dstPostfix, fileFormat)
-    FloquetExpFileName = '%s/poExpCont%s.%s' % (contDir, dstPostfix, fileFormat)
+    FloquetExpFileName = '%s/poExpCont%s.%s' \
+                         % (contDir, dstPostfix, fileFormat)
 
     if (fileFormat == 'bin'):
         # Read fixed point and cont

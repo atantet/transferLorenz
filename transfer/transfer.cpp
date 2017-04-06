@@ -235,7 +235,7 @@ int main(int argc, char * argv[])
   // Get transition matrices for different lags
   tau = gsl_vector_get(tauRng, 0);
   tauNum = (size_t) round(tau / printStep + 0.1);
-  sprintf(dstPostfixTau, "%s_tau%03d", dstPostfix, (int) (tau * 1000));
+  sprintf(dstPostfixTau, "%s_tau%03d", dstPostfix, (int) (tau * 1000 + 0.1));
 
   std::cout << "\nConstructing transfer operator for a lag of "
 	    << tau << std::endl;

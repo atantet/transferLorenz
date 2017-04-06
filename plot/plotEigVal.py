@@ -10,13 +10,12 @@ configFile = '../cfg/Lorenz63.cfg'
 compName1 = 'x'
 compName2 = 'y'
 compName3 = 'z'
-#readSpec = ergoPlot.readSpectrum
-readSpec = ergoPlot.readSpectrumCompressed
 
 cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
 
 L = cfg.simulation.LCut + cfg.simulation.spinup
+spinup = cfg.simulation.spinup
 tau = cfg.transfer.tauRng[0]
 printStepNum = int(cfg.simulation.printStep / cfg.simulation.dt + 0.1)
 caseName = cfg.model.caseName
@@ -38,11 +37,19 @@ for d in np.arange(dimObs):
         gridPostfix = "%s_n%dl%dh%d" % (gridPostfix, cfg.grid.nx[d],
                                         cfg.sprinkle.minInitState[d],
                                         cfg.sprinkle.maxInitState[d])
-gridPostfix = "_%s%s" % (caseName, gridPostfix)
-srcPostfixSim = "%s_rho%04d_L%d_dt%d_nTraj%d%s" \
-                % (gridPostfix, int(rho * 100 + 0.1), int(tau * 1000 + 0.1),
-                   -np.round(np.log10(cfg.simulation.dt)), cfg.sprinkle.nTraj,
-                   nProc)
+readSpec = ergoPlot.readSpectrumCompressed
+srcPostfixSim = "_%s%s_rho%04d_L%d_dt%d_nTraj%d%s" \
+                % (caseName, gridPostfix, int(rho * 100 + 0.1),
+                   int(tau * 1000 + 0.1),
+                   -np.round(np.log10(cfg.simulation.dt)),
+                   cfg.sprinkle.nTraj, nProc)
+postfix = "%s" % (srcPostfixSim,)
+# readSpec = ergoPlot.readSpectrum
+# srcPostfixSim = "_%s_rho%04d_L%d_spinup%d_dt%d_samp%d_nTraj%d" \
+#                 % (caseName, int(rho * 100 + 0.1), int(L + 0.1),
+#                    int(spinup + 0.1), -np.round(np.log10(cfg.simulation.dt)),
+#                    int(printStepNum), cfg.sprinkle.nTraj)
+# postfix = "%s%s_tau%03d" % (srcPostfixSim, gridPostfix, int(tau * 1000 + 0.1))
 
 xmineigVal = -cfg.stat.rateMax
 ymineigVal = -cfg.stat.angFreqMax
@@ -55,13 +62,9 @@ yticks = np.concatenate((yticksNeg, yticksPos))
 
 
 # Define file names
-postfix = "%s" % (srcPostfixSim,)
 eigValForwardFile = '%s/eigval/eigvalForward_nev%d%s.%s' \
                     % (cfg.general.specDir, cfg.spectrum.nev, postfix,
                        cfg.general.fileFormat)
-eigValBackwardFile = '%s/eigval/eigvalBackward_nev%d%s.%s' \
-                    % (cfg.general.specDir, cfg.spectrum.nev, postfix,
-                    cfg.general.fileFormat)
 
 # Read transfer operator spectrum from file and create a bi-orthonormal basis
 # of eigenvectors and backward eigenvectors:

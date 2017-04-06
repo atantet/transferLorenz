@@ -167,7 +167,8 @@ int main(int argc, char * argv[])
     // Scale the number of trajectories with the number of processors
     const long long NumGlobalElements = (long long) N;
     const long long nTrajPerProc = (long long) nTraj;
-    const long long nTrajPerBox = nTrajPerProc / NumGlobalElements * NumProc;
+    const long long nTrajPerBox = (nTrajPerProc * NumProc) \
+      / NumGlobalElements;
     long long nIn = 0;
     long long nTot = 0;
 
@@ -196,8 +197,8 @@ int main(int argc, char * argv[])
 	    "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
 	    resDir, nev, postfix, fileFormat);
     sprintf(EigVecForwardFileName,
-	    "%s/spectrum/eigvec/eigvecForward_nev%d%s.h5",
-	    resDir, nev, postfix, fileFormat);
+	    "%s/spectrum/eigvec/eigvecForward_nev%d%s.mm",
+	    resDir, nev, postfix);
 
     // Set random number generator
     gsl_rng * r = gsl_rng_alloc(gsl_rng_ranlxs1);
@@ -431,11 +432,12 @@ int main(int argc, char * argv[])
 	  if (MyPID == 0)
 	    std::cout << "Writing forward eigenvectors..." << std::endl;
 	  MV *evecs = sol.Evecs.get();
-	  evecs->Print(std::cout);
-	  EpetraExt::HDF5 HDF5(Comm);
-	  HDF5.Create(EigVecForwardFileName);
-	  HDF5.Write("eigvecForward", *evecs);
-	  HDF5.Close();
+	  EpetraExt::MultiVectorToMatrixMarketFile(EigVecForwardFileName,
+	  					   *evecs, 0, 0, true);
+	  // EpetraExt::HDF5 HDF5(Comm);
+	  // HDF5.Create(EigVecForwardFileName);
+	  // HDF5.Write("eigvecForward", *evecs);
+	  // HDF5.Close();
 	}
       }
     success = true;

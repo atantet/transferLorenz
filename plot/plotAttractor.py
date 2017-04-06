@@ -58,6 +58,7 @@ dim = cfg.model.dim
 L = cfg.simulation.LCut + cfg.simulation.spinup
 printStepNum = int(cfg.simulation.printStep / cfg.simulation.dt + 0.1)
 caseName = cfg.model.caseName
+fileFormat = cfg.general.fileFormat
 
 delayName = ""
 if (hasattr(cfg.model, 'delaysDays')):
@@ -82,13 +83,22 @@ dstPostfix = "%s_cont%04d_contStep%de%d_dt%d_numShoot%d" \
              % (srcPostfix, int(initCont[dim] * 1000 + 0.1), int(mantis*1.01),
                 (int(exp*1.01)), -np.round(np.log10(dt)),
                 cfg.continuation.numShoot)
-poFileName = '%s/poCont%s.txt' % (contDir, dstPostfix)
-FloquetExpFileName = '%s/poExpCont%s.txt' % (contDir, dstPostfix)
+poFileName = '%s/poCont%s.%s' % (contDir, dstPostfix, fileFormat)
+FloquetExpFileName = '%s/poExpCont%s.%s' % (contDir, dstPostfix, fileFormat)
 
 # Read fixed point and cont
-state = np.loadtxt(poFileName).reshape(-1, dim+2)
-# Read FloquetExpenvalues
-FloquetExp = np.loadtxt(FloquetExpFileName)
+if (fileFormat == 'bin'):
+    # Read fixed point and cont
+    state = np.fromfile(poFileName)
+    # Read FloquetExpenvalues
+    FloquetExp = np.fromfile(FloquetExpFileName)
+else:
+    # Read fixed point and cont
+    state = np.loadtxt(poFileName)
+    # Read FloquetExpenvalues
+    FloquetExp = np.loadtxt(FloquetExpFileName)
+state = state.reshape(-1, dim+2)
+FloquetExp = FloquetExp.reshape(-1, 2)
 FloquetExp = (FloquetExp[:, 0] + 1j * FloquetExp[:, 1]).reshape(-1, dim)
 # Remove last
 state = state[:-1]
@@ -109,11 +119,11 @@ for t in np.arange(1, contRng.shape[0]):
 
 isStable = np.max(FloquetExp.real, 1) < 1.e-6
 
-#cont = 24.1
+cont = 24.1
 #cont = 24.4
-cont = 24.8
+#cont = 24.8
 dt = 1.e-3
-samp = 20
+samp = 10
 
 t = np.argmin((cont - contRng)**2)
 cont = contRng[t]
@@ -146,8 +156,13 @@ xt = propagateRK4(po[t], field, p, dt, nt)
 xt = xt[:-1]
 
 ax.plot(xt[:, 0], xt[:, 1], xt[:, 2], '-k', linewidth=2)
-
-
+ax.plot(-xt[:, 0], -xt[:, 1], xt[:, 2], '-k', linewidth=2)
+ax.set_xlabel(r'$x$', fontsize=fs_latex)
+ax.set_ylabel(r'$y$', fontsize=fs_latex)
+ax.set_zlabel(r'$z$', fontsize=fs_latex)
+plt.setp(ax.get_xticklabels(), fontsize=fs_xticklabels)
+plt.setp(ax.get_yticklabels(), fontsize=fs_yticklabels)
+plt.setp(ax.get_zticklabels(), fontsize=fs_yticklabels)
 plt.savefig('%s/continuation/chaoticOrbit_rho%04d%s.%s' \
             % (plotDir, cont*1000, dstPostfix, figFormat),
             dpi=300, bbox_inches='tight')

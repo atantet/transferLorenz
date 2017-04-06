@@ -84,7 +84,7 @@ for k in np.arange(nGrids):
 
 
 # Plot
-nevPlot = 5
+nevPlot = 30
 lw = 2
 fig = plt.figure()
 ax = fig.add_subplot(111)
@@ -92,7 +92,8 @@ ls = ['-', '-']
 xticks = nx0Rng
 yticks = np.arange(-0.2, 0.01, 0.02)
 for ev in np.arange(nevPlot):
-    plt.plot(nx0Rng, eigValGen[:, ev].real, linewidth=lw, linestyle=ls[ev%2])
+    plt.plot(nx0Rng, eigValGen[:, ev].real, linewidth=lw, linestyle=ls[ev%2],
+             marker='o')
 ax.set_xlabel(r'$n_d$', fontsize=ergoPlot.fs_latex)
 ax.set_ylabel(r'$\Re(\lambda_k)$', fontsize=ergoPlot.fs_latex)
 plt.setp(ax.get_xticklabels(), fontsize=ergoPlot.fs_xticklabels)
