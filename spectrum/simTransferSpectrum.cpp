@@ -33,6 +33,7 @@
 #include <Epetra_Time.h>
 #include <EpetraExt_Exception.h>
 #include <EpetraExt_MultiVectorOut.h>
+#include <Epetra_RowMatrixTransposer.h>
 #include <AnasaziEpetraAdapter.hpp>
 #include <AnasaziBasicEigenproblem.hpp>
 #include <AnasaziBlockKrylovSchurSolMgr.hpp>
@@ -275,7 +276,8 @@ int main(int argc, char * argv[])
 #pragma omp critical
 	    {
 	      std::cout << "Getting transitions from box " << box0 << " of "
-			<< NumGlobalElements-1 << " by " << MyPID << std::endl;
+			<< NumGlobalElements-1 << " by " << MyPID
+			<< std::endl;
 	    }
 	  }
 	
@@ -292,7 +294,8 @@ int main(int argc, char * argv[])
 						 gsl_vector_get(maxBox, d)));
 	  
 	    // Get trajectory
-	    if ((boxf = getTraj(mod, grid, IC, tau, dt)) < NumGlobalElements) {
+	    if ((boxf = getTraj(mod, grid, IC, tau, dt))
+		< NumGlobalElements) {
 	      jv[traj] = boxf;
 	      vv[traj] = 1. / nTrajPerBox;
 	      traj++;
@@ -305,8 +308,9 @@ int main(int argc, char * argv[])
 #pragma omp critical
 	  {
 	    if ((ierr = P->InsertGlobalValues(box0, traj, vv, jv)) < 0) {
-	      std::cerr << "Error: inserting global values to transition matrix."
-			<< std::endl;
+	      std::cerr
+		<< "Error: inserting global values to transition matrix."
+		<< std::endl;
 	      throw std::exception();
 	    }
 	    nIn += traj;
@@ -333,22 +337,27 @@ int main(int argc, char * argv[])
     // Elapsed time
     double dt = timer.ElapsedTime();
     if (MyPID == 0)
-      std::cout << "Transition matrix build time (secs):  " << dt << std::endl;
+      std::cout << "Transition matrix build time (secs):  " << dt
+		<< std::endl;
     delete grid;
 
-
+    // Transpose
+    Epetra_Map rowMapTrans (NumGlobalElements, 0, Comm);
+    Epetra_CrsMatrix *PT;
+    Epetra_RowMatrixTransposer trans(P); 
+    EPETRA_CHK_ERR(trans.CreateTranspose(false, PT));
 
     /**
      * SOLVE EIGEN PROBLEM
      */
     timer.ResetStartTime();
-    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcpFromRef(*P);
+    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcpFromRef(*PT);
 
     // Create an Epetra_MultiVector for an initial vector to start the
     // solver.  Note: This needs to have the same number of columns as
     // the blocksize.
     Teuchos::RCP<Epetra_MultiVector> ivec
-      = Teuchos::rcp (new Epetra_MultiVector (rowMap, blockSize));
+      = Teuchos::rcp (new Epetra_MultiVector (rowMapTrans, blockSize));
     ivec->Random (); // fill the initial vector with random values
 
 
@@ -441,6 +450,7 @@ int main(int argc, char * argv[])
 	}
       }
     success = true;
+    delete P;
   }
   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
 

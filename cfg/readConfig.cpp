@@ -95,28 +95,28 @@ readModel(const Config *cfg, const bool verboseCFG)
   if (cfg->exists("model"))
     {
       /** Get model settings */
-      std::cout << std::endl << "---model---" << std::endl;
-
       // Dimension
       dim = cfg->lookup("model.dim");
       dimObs = dim;
-      std::cout << "dim = " << dim << std::endl;
 
       // Case name
       strcpy(caseName, (const char *) cfg->lookup("model.caseName"));
-      std::cout << "Case name: " << caseName << std::endl;
-
       p["rho"] = cfg->lookup("model.rho");
       p["sigma"] = cfg->lookup("model.sigma");
       p["beta"] = cfg->lookup("model.beta");
-      std::cout << "rho = " << p["rho"] << std::endl;
-      std::cout << "sigma = " << p["sigma"] << std::endl;
-      std::cout << "beta = " << p["beta"] << std::endl;
-      if (cfg->exists("model.eps")) {
+      if (cfg->exists("model.eps"))
 	p["eps"] = cfg->lookup("model.eps");
-	std::cout << "eps = " << p["eps"] << std::endl;
+      if (verboseCFG) {
+	std::cout << std::endl << "---model---" << std::endl;
+	std::cout << "dim = " << dim << std::endl;
+	std::cout << "Case name: " << caseName << std::endl;
+	std::cout << "rho = " << p["rho"] << std::endl;
+	std::cout << "sigma = " << p["sigma"] << std::endl;
+	std::cout << "beta = " << p["beta"] << std::endl;
+	if (cfg->exists("model.eps"))
+	  std::cout << "eps = " << p["eps"] << std::endl;
       }
-    } 
+    }
   else
     std::cout << "Model configuration section does not exist..."
 	      << std::endl;
