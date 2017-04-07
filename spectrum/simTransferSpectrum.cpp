@@ -33,7 +33,6 @@
 #include <Epetra_Time.h>
 #include <EpetraExt_Exception.h>
 #include <EpetraExt_MultiVectorOut.h>
-#include <Epetra_RowMatrixTransposer.h>
 #include <AnasaziEpetraAdapter.hpp>
 #include <AnasaziBasicEigenproblem.hpp>
 #include <AnasaziBlockKrylovSchurSolMgr.hpp>
@@ -342,22 +341,19 @@ int main(int argc, char * argv[])
     delete grid;
 
     // Transpose
-    Epetra_Map rowMapTrans (NumGlobalElements, 0, Comm);
-    Epetra_CrsMatrix *PT;
-    Epetra_RowMatrixTransposer trans(P); 
-    EPETRA_CHK_ERR(trans.CreateTranspose(false, PT));
+    P->SetUseTranspose(true);
 
     /**
      * SOLVE EIGEN PROBLEM
      */
     timer.ResetStartTime();
-    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcpFromRef(*PT);
+    Teuchos::RCP<Epetra_CrsMatrix> A = Teuchos::rcpFromRef(*P);
 
     // Create an Epetra_MultiVector for an initial vector to start the
     // solver.  Note: This needs to have the same number of columns as
     // the blocksize.
     Teuchos::RCP<Epetra_MultiVector> ivec
-      = Teuchos::rcp (new Epetra_MultiVector (rowMapTrans, blockSize));
+      = Teuchos::rcp (new Epetra_MultiVector (rowMap, blockSize));
     ivec->Random (); // fill the initial vector with random values
 
 
