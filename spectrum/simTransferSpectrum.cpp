@@ -58,6 +58,13 @@
  * Finally, the results are printed.
  */
 
+// Type definitions
+typedef double ScalarType;
+typedef Teuchos::ScalarTraits<ScalarType>          SCT;
+typedef SCT::magnitudeType               MagnitudeType;
+typedef Epetra_MultiVector MV;
+typedef Epetra_Operator OP;
+  
 /** \brief Conversion from spherical to Cartesian coordinates. */
 void sphere2Cart(gsl_vector *x);
 /** \brief Conversion from Cartesian to spherical coordinates. */
@@ -68,7 +75,18 @@ long long getTraj(model *mod, Grid *grid, gsl_vector *IC, const double tau,
 /** \brief Get box boundaries. */
 void getBoxBoundaries(const size_t box0, const gsl_vector_uint *nx,
 		      const Grid *grid, gsl_vector *minBox, gsl_vector *maxBox);
-
+/** \brief Solve eigenproblem. */
+void solveProblem(const int MyPID,
+		  Teuchos::RCP<Anasazi::BlockKrylovSchurSolMgr
+		  <ScalarType, MV, OP>> &MySolverMan,
+		  Teuchos::RCP<Anasazi::BasicEigenproblem
+		  <ScalarType, MV, OP>> &MyProblem,
+		  Anasazi::Eigensolution<ScalarType, MV> &sol);
+/** \brief Write solution of eigenproblem. */
+void writeSolution(const int MyPID,
+		   const Anasazi::Eigensolution<ScalarType, MV> &sol,
+		   const char *EigValFileName,
+		   const char *EigVecFileName=NULL);
 
 /** \brief Calculate transfer operators from time series.
  *
@@ -83,13 +101,6 @@ void getBoxBoundaries(const size_t box0, const gsl_vector_uint *nx,
  */
 int main(int argc, char * argv[])
 {
-  // Type definitions
-  typedef double ScalarType;
-  typedef Teuchos::ScalarTraits<ScalarType>          SCT;
-  typedef SCT::magnitudeType               MagnitudeType;
-  typedef Epetra_MultiVector MV;
-  typedef Epetra_Operator OP;
-  
 #ifdef HAVE_MPI
   // Initialize MPI
   MPI_Init(&argc, &argv);
@@ -183,8 +194,10 @@ int main(int argc, char * argv[])
 
     // Transfer operator declarations
     char postfix[256], srcPostfix[256], dstGridPostfix[256];
-    char gridFileName[256], EigValForwardFileName[256],
-      EigVecForwardFileName[256];
+    char gridFileName[256],
+      EigValForwardFileName[256], EigValBackwardFileName[256],
+      EigVecForwardFileName[256], EigVecBackwardFileName[256];
+    
     sprintf(srcPostfix, "_%s", caseName);
     sprintf(gridFileName, "%s/grid/grid%s%s.txt", resDir, srcPostfix,
 	    gridPostfix);
@@ -193,13 +206,24 @@ int main(int argc, char * argv[])
 	    (int) (tau * 1000),
 	    (int) round(-gsl_sf_log(dt)/gsl_sf_log(10)+0.1), nTraj, NumProc);
     sprintf(postfix, "%s", dstGridPostfix);
+    
     sprintf(EigValForwardFileName,
 	    "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
 	    resDir, nev, postfix, fileFormat);
-    sprintf(EigVecForwardFileName,
-	    "%s/spectrum/eigvec/eigvecForward_nev%d%s.mm",
-	    resDir, nev, postfix);
+    if (getForwardEigenvectors)
+      sprintf(EigVecForwardFileName,
+	      "%s/spectrum/eigvec/eigvecForward_nev%d%s.mm",
+	      resDir, nev, postfix);
 
+    if (getBackwardEigenvectors) {
+      sprintf(EigValBackwardFileName,
+	      "%s/spectrum/eigval/eigvalBackward_nev%d%s.%s",
+	      resDir, nev, postfix, fileFormat);
+      sprintf(EigVecBackwardFileName,
+	      "%s/spectrum/eigvec/eigvecBackward_nev%d%s.mm",
+	      resDir, nev, postfix);
+    }
+    
     // Set random number generator
     gsl_rng * r = gsl_rng_alloc(gsl_rng_ranlxs1);
     // Get seed and set random number generator
@@ -334,14 +358,10 @@ int main(int argc, char * argv[])
     EPETRA_CHK_ERR(P->FillComplete());
 
     // Elapsed time
-    double dt = timer.ElapsedTime();
     if (MyPID == 0)
-      std::cout << "Transition matrix build time (secs):  " << dt
-		<< std::endl;
+      std::cout << "Transition matrix build time (secs):  "
+		<< timer.ElapsedTime() << std::endl;
     delete grid;
-
-    // Transpose
-    P->SetUseTranspose(true);
 
     /**
      * SOLVE EIGEN PROBLEM
@@ -395,57 +415,43 @@ int main(int argc, char * argv[])
       MySolverMan = Teuchos::rcp
       (new Anasazi::BlockKrylovSchurSolMgr<ScalarType, MV, OP>
        (MyProblem, MyPL));
-
     
-    /*
-     * Solve the problem
-     */
-    if (MyPID == 0)
-      std::cout << "Solving eigen problem..." << std::endl;
-    Anasazi::ReturnType returnCode = MySolverMan->solve ();
+    // Create solution
+    Anasazi::Eigensolution<ScalarType, MV> sol;
 
-    // Get the eigenvalues and eigenvectors from the eigenproblem
-    if (MyPID == 0)
-      std::cout << "Getting solution..." << std::endl;
-    Anasazi::Eigensolution<ScalarType, MV> sol = MyProblem->getSolution ();
-    std::vector<Anasazi::Value<ScalarType> > evals = sol.Evals;
-    std::vector<int> index = sol.index;
-    int numev = sol.numVecs;
-    if (MyPID == 0)
-      std::cout << "Found " << numev << " eigenvalues" << std::endl;
+    /** Solve forward problem */
+    // Transpose
+    P->SetUseTranspose(true);
+
+    solveProblem(MyPID, MySolverMan, MyProblem, sol);
 
     // Elapsed time
-    dt = timer.ElapsedTime();
     if (MyPID == 0)
-      std::cout << "Eigenproblem solved in time (secs):  " << dt << std::endl;
+      std::cout << "Eigenproblem solved in time (secs):  "
+		<< timer.ElapsedTime() << std::endl;
+
+    if (getForwardEigenvectors)
+      writeSolution(MyPID, sol, EigValForwardFileName,
+		    EigVecForwardFileName);
+    else
+      writeSolution(MyPID, sol, EigValForwardFileName);
+
+    /** Solve backward problem */
+    // No transpose
+    if (getBackwardEigenvectors) {
+      P->SetUseTranspose(false);
+      
+      solveProblem(MyPID, MySolverMan, MyProblem, sol);
+
+      // Elapsed time
+      if (MyPID == 0)
+	std::cout << "Eigenproblem solved in time (secs):  "
+		  << timer.ElapsedTime() << std::endl;
     
-    /*
-     * Print eigenvalues and indices
-     */
-    std::filebuf fb;
-    std::ostream os(&fb);
-    if (numev > 0)
-      {
-	fb.open (EigValForwardFileName, std::ios::out);
-	for (int ev = 0; ev < numev; ev++)
-	  os << evals[ev].realpart << "\t" << evals[ev].imagpart
-	     << "\t" << index[ev] << std::endl;
-	fb.close();
-	  
-	// Print eigenvectors
-	if (getForwardEigenvectors) {
-	  if (MyPID == 0)
-	    std::cout << "Writing forward eigenvectors..." << std::endl;
-	  MV *evecs = sol.Evecs.get();
-	  EpetraExt::MultiVectorToMatrixMarketFile(EigVecForwardFileName,
-	  					   *evecs, 0, 0, true);
-	  // EpetraExt::HDF5 HDF5(Comm);
-	  // HDF5.Create(EigVecForwardFileName);
-	  // HDF5.Write("eigvecForward", *evecs);
-	  // HDF5.Close();
-	}
-      }
-    success = true;
+      writeSolution(MyPID, sol, EigValBackwardFileName,
+		    EigVecBackwardFileName);
+    }
+
     delete P;
   }
   TEUCHOS_STANDARD_CATCH_STATEMENTS(true, std::cerr, success);
@@ -565,5 +571,73 @@ getBoxBoundaries(const size_t box0, const gsl_vector_uint *nx,
   // Free
   gsl_vector_uint_free(multiIdx);
   
+  return;
+}
+
+
+void
+solveProblem(const int MyPID,
+	     Teuchos::RCP<Anasazi::BlockKrylovSchurSolMgr
+	     <ScalarType, MV, OP>> &MySolverMan,
+	     Teuchos::RCP<Anasazi::BasicEigenproblem
+	     <ScalarType, MV, OP>> &MyProblem,
+	     Anasazi::Eigensolution<ScalarType, MV> &sol)
+{
+  /*
+   * Solve the problem
+   */
+  if (MyPID == 0)
+    std::cout << "Solving eigen problem..." << std::endl;
+  Anasazi::ReturnType returnCode = MySolverMan->solve ();
+
+  // Get the eigenvalues and eigenvectors from the eigenproblem
+  if (MyPID == 0)
+    std::cout << "Getting solution..." << std::endl;
+  sol = MyProblem->getSolution ();
+  if (MyPID == 0)
+    std::cout << "Found " << sol.numVecs << " eigenvalues" << std::endl;
+
+  return;
+}
+
+void
+writeSolution(const int MyPID,
+	      const Anasazi::Eigensolution<ScalarType, MV> &sol,
+	      const char *EigValFileName, const char *EigVecFileName)
+{
+  std::vector<Anasazi::Value<ScalarType> > evals = sol.Evals;
+  int numev = sol.numVecs;
+  std::vector<int> index = sol.index;
+  
+  /*
+   * Print eigenvalues and indices
+   */
+  std::filebuf fb;
+  std::ostream os(&fb);
+  if (numev > 0) {
+      if (MyPID == 0)
+	std::cout << "Writing eigenvalues to "
+		  << EigValFileName << std::endl;
+      fb.open (EigValFileName, std::ios::out);
+      for (int ev = 0; ev < numev; ev++)
+	os << evals[ev].realpart << "\t" << evals[ev].imagpart
+	   << "\t" << index[ev] << std::endl;
+      fb.close();
+	  
+      // Print eigenvectors
+      if (EigVecFileName) {
+	if (MyPID == 0)
+	  std::cout << "Writing eigenvectors to "
+		    << EigVecFileName << std::endl;
+	MV *evecs = sol.Evecs.get();
+	EpetraExt::MultiVectorToMatrixMarketFile(EigVecFileName,
+						 *evecs, 0, 0, true);
+	// EpetraExt::HDF5 HDF5(Comm);
+	// HDF5.Create(EigVecForwardFileName);
+	// HDF5.Write("eigvecForward", *evecs);
+	// HDF5.Close();
+      }
+    }
+
   return;
 }

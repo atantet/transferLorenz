@@ -4,7 +4,8 @@ import matplotlib.pyplot as plt
 import pylibconfig2
 import ergoPlot
 
-#ergoPlot.dpi = 2000
+#figFormat = ergoPlot.figFormat
+figFormat = 'png'
 
 configFile = '../cfg/Lorenz63.cfg'
 cfg = pylibconfig2.Config()
@@ -17,6 +18,9 @@ ymineigVal = -cfg.stat.angFreqMax
 xlimEig = [xmineigVal, -xmineigVal/100]
 ylimEig = [ymineigVal, -ymineigVal]
 (ev_xlabel, ev_ylabel, ev_zlabel) = compNames
+xlimEV = [-20., 20.]
+ylimEV = [-20., 20.]
+zlimEV = [0., 35.]
 
 
 def sphere2Cart(x, p):
@@ -72,7 +76,6 @@ srcPostfixSim = "%s_rho%04d_L%d_dt%d_nTraj%d%s" \
 postfix = "%s" % (srcPostfixSim,)
 
 # Read grid
-sub = 1
 gridFile = '%s/grid/grid%s.txt' % (cfg.general.resDir, gridPostfix)
 coord = ergoPlot.readGrid(gridFile, dimObs)
 X, Y, Z = np.meshgrid(coord[0], coord[1], coord[2], indexing='ij')
@@ -104,17 +107,27 @@ ergoPlot.plotEig(eigValGen, xlabel=realLabel, ylabel=imagLabel,
 
 # Plot eigenvectors of transfer operator
 alpha = 0.0
-ss = 6
+ss = 4
 os.system('mkdir %s/spectrum/eigvec 2> /dev/null' % cfg.general.plotDir)
-nevPlot = 3
+#eigVecForward *= -1.
 eigVecForward[:, 0]  /= eigVecForward[:, 0].sum()
-for ev in np.arange(nevPlot):
+sub = 1
+for ev in np.arange(cfg.spectrum.nEigVecPlot):
+    if ev == 0:
+        cmap = cm.hot_r
+        positive=True
+        plotcbar=False
+    else:
+        cmap = cm.RdBu_r
+        positive=False
+        plotcbar=True
     vec = eigVecForward[:, ev].real.reshape(X.shape)
     print 'Plotting real part of eigenvector %d...' % (ev + 1,)
     ergoPlot.plot3D(X[::sub, ::sub, ::sub], Y[::sub, ::sub, ::sub],
                     Z[::sub, ::sub, ::sub], vectOrig=vec[::sub, ::sub, ::sub],
                     xlabel=ev_xlabel, ylabel=ev_ylabel, zlabel=ev_zlabel,
-                    alpha=alpha, scattersize=ss)
+                    alpha=alpha, scattersize=ss, cmap=cmap, plotcbar=plotcbar,
+                    positive=positive, xlim=xlimEV, ylim=ylimEV, zlim=zlimEV)
     dstFile = '%s/spectrum/eigvec/eigvecForwardReal_ev%03d%s.%s' \
-              % (cfg.general.plotDir, ev + 1, postfix, ergoPlot.figFormat)
+              % (cfg.general.plotDir, ev + 1, postfix, figFormat)
     plt.savefig(dstFile, bbox_inches=ergoPlot.bbox_inches, dpi=ergoPlot.dpi)
