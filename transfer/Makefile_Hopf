@@ -1,6 +1,6 @@
 INCDIR=-I$(HOME)/local/include/
 LIBDIR=-L$(HOME)/local/lib/
-LIBS=-lgsl -lconfig++ -lergopack -lgomp -larpack
+LIBS=-lgsl -lgslcblas -lconfig++ -lergopack -lgomp
 CONFIG=../cfg/readConfig
 
 CC=icc -openmp
@@ -12,13 +12,17 @@ LDFLAGSGDB=$(LDFLAGSSTD) -gdb
 LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
 
-#EXE=spectrum
-EXE=spectrumSprinkle
+EXE=transfer
 
 all:$(EXE).out
-	mkdir -p ../results/spectrum/eigval
-	mkdir -p ../results/spectrum/eigvec
-	mkdir -p ../results/spectrum/conditionNumbers
+	mkdir -p ../results/grid
+	mkdir -p ../results/transfer/forwardTransition
+	mkdir -p ../results/transfer/backwardTransition
+	mkdir -p ../results/transfer/initDist
+	mkdir -p ../results/transfer/finalDist
+	mkdir -p ../results/transfer/gridMem
+	mkdir -p ../results/transfer/mask
+	mkdir -p ../results/grid/
 
 $(EXE).o:$(EXE).cpp
 	$(CC) -c $(CFLAGS) $(INCDIR) -o $@ $<

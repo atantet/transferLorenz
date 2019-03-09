@@ -52,7 +52,7 @@ for k in np.arange(nCont):
     initCont = initContRng[k]
     contStep = contStepRng[k]
     
-    contAbs = sqrt(contStep*contStep)
+    contAbs = np.sqrt(contStep*contStep)
     sign = contStep / contAbs
     exp = np.log10(contAbs)
     mantis = sign * np.exp(np.log(contAbs) / exp)

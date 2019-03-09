@@ -52,22 +52,26 @@ int main(int argc, char * argv[])
       readSpectrum(&cfg);
       std::cout << "Sparsing success.\n" << std::endl;
     }
-  catch(const SettingNotFoundException &nfex) {
-    std::cerr << "Setting " << nfex.getPath() << " not found." << std::endl;
-    throw nfex;
+  catch(const SettingTypeException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " type exception." << std::endl;
+    throw ex;
   }
-  catch(const FileIOException &fioex) {
+  catch(const SettingNotFoundException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " not found." << std::endl;
+    throw ex;
+  }
+  catch(const SettingNameException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " name exception." << std::endl;
+    throw ex;
+  }
+  catch(const ParseException &ex) {
+    std::cerr << "Parse error at " << ex.getFile() << ":" << ex.getLine()
+              << " - " << ex.getError() << std::endl;
+    throw ex;
+  }
+  catch(const FileIOException &ex) {
     std::cerr << "I/O error while reading configuration file." << std::endl;
-    throw fioex;
-  }
-  catch(const ParseException &pex) {
-    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
-              << " - " << pex.getError() << std::endl;
-    throw pex;
-  }
-  catch(const SettingTypeException &stex) {
-    std::cerr << "Setting type exception." << std::endl;
-    throw stex;
+    throw ex;
   }
   catch (...)
     {
@@ -77,14 +81,12 @@ int main(int argc, char * argv[])
   
   // Declarations
   // Transfer
-  char forwardTransitionFileName[256], initDistFileName[256],
-    backwardTransitionFileName[256], finalDistFileName[256],
-    maskFileName[256], srcPostfix[256], srcPostfixSim[256], postfix[256];
+  char forwardTransitionFileName[256], srcPostfix[256], srcPostfixSim[256],
+    postfix[256];
   transferOperator *transferOp;
 
   // Eigen problem
-  char EigValForwardFileName[256], EigVecForwardFileName[256],
-    EigValBackwardFileName[256], EigVecBackwardFileName[256];
+  char EigValForwardFileName[256];
   transferSpectrum *transferSpec;
 
   
@@ -101,74 +103,29 @@ int main(int argc, char * argv[])
   sprintf(forwardTransitionFileName, \
 	  "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
 	  resDir, postfix, fileFormat);
-  sprintf(backwardTransitionFileName, \
-	  "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
-	  resDir, postfix, fileFormat);
   sprintf(EigValForwardFileName,
 	  "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
 	  resDir, nev, postfix, fileFormat);
   sprintf(EigValForwardFileName,
 	  "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
-	  resDir, nev, postfix, fileFormat);
-  sprintf(EigVecForwardFileName,
-	  "%s/spectrum/eigvec/eigvecForward_nev%d%s.%s",
-	  resDir, nev, postfix, fileFormat);
-  sprintf(EigValBackwardFileName,
-	  "%s/spectrum/eigval/eigvalBackward_nev%d%s.%s",
-	  resDir, nev, postfix, fileFormat);
-  sprintf(EigVecBackwardFileName,
-	  "%s/spectrum/eigvec/eigvecBackward_nev%d%s.%s",
 	  resDir, nev, postfix, fileFormat);
 
   // Read transfer operator
   std::cout << "Reading stationary transfer operator..." << std::endl;
   try
     {
-      /** Construct transfer operator without allocating memory
-	  to the distributions (only to the mask) ! */
+      /** Construct transfer operator allocating memory
+       *  to initial distribution and mask (set uniform). */
       transferOp = new transferOperator(N, stationary);
+      
+      /** Set uniform initial distribution (for eigenvector norm). */
+      gsl_vector_set_all(transferOp->initDist, 1. / N);
 	    
       // Scan forward transition matrix (this sets NFilled)
       std::cout << "Scanning forward transition matrix from "
 		<< forwardTransitionFileName << std::endl;
       transferOp->scanForwardTransition(forwardTransitionFileName,
 					fileFormat);
-
-      // Scan mask for the first lag
-      sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
-	      resDir, postfix, fileFormat);
-      std::cout << "Scanning mask from "
-		<< maskFileName << std::endl;
-      transferOp->scanMask(maskFileName, fileFormat);
-      
-      // Allocate memory to distributions
-      transferOp->allocateDist();
-
-      // Scan initial distribution for the first lag
-      sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
-	      resDir, postfix, fileFormat);
-      std::cout << "Scanning initial distribution from "
-		<< initDistFileName << std::endl;
-      transferOp->scanInitDist(initDistFileName,
-			       fileFormat);
-      
-      if (!stationary)
-	{
-	  // Scan backward transition matrix
-	  std::cout << "Scanning backward transition matrix from "
-		    << backwardTransitionFileName << std::endl;
-	  transferOp->scanBackwardTransition(backwardTransitionFileName,
-					     fileFormat);
-      
-	  // Only scan final distribution for the first lag
-	  sprintf(finalDistFileName,
-		  "%s/transfer/finalDist/finalDist%s.%s",
-		  resDir, postfix, fileFormat);
-	  std::cout << "Scanning final distribution from "
-		    << finalDistFileName << std::endl;
-	  transferOp->scanFinalDist(finalDistFileName,
-				    fileFormat);
-      	}
     }
   catch (std::exception &ex)
     {
@@ -184,33 +141,12 @@ int main(int argc, char * argv[])
       // Solve eigen value problem with default configuration
       transferSpec = new transferSpectrum(nev, transferOp, config);
 
-      if (getForwardEigenvectors)
-	{
-	  std::cout << "Solving eigen problem for forward transition matrix..."
-		    << std::endl;
-	  transferSpec->getSpectrumForward();
-	  std::cout << "Found "
-		    << transferSpec->getNev()
-		    << "/" << nev << " eigenvalues." << std::endl;
-	}
-      if (getBackwardEigenvectors)
-	{
-	  std::cout << "Solving eigen problem for backward transition matrix..."
-		    << std::endl;
-	  transferSpec->getSpectrumBackward();
-	  std::cout << "Found "
-		    << transferSpec->getNev()
-		    << "/" << nev << " eigenvalues." << std::endl;
-	}
-      if (getForwardEigenvectors
-	  && getBackwardEigenvectors
-	  && makeBiorthonormal)
-	{
-	  std::cout << "Making set of forward and backward eigenvectors \
-biorthonormal..."
-		    << std::endl;
-	  transferSpec->makeBiorthonormal();
-	}
+      std::cout << "Solving eigen problem for forward transition matrix..."
+		<< std::endl;
+      transferSpec->getSpectrumForward();
+      std::cout << "Found "
+		<< transferSpec->getNev()
+		<< "/" << nev << " eigenvalues." << std::endl;
     }
   catch (std::exception &ex)
     {
@@ -221,26 +157,10 @@ biorthonormal..."
   // Write spectrum 
   try
     {
-      if (getForwardEigenvectors)
-	{
-	  std::cout << "Writing forward eigenvalues and eigenvectors..."
-		    << std::endl;
-	  // transferSpec->writeSpectrumForward(EigValForwardFileName,
-	  // 				     EigVecForwardFileName,
-	  // 				     fileFormat);
-	  transferSpec->writeEigValForward(EigValForwardFileName,
-	  fileFormat);
-	}
-      if (getBackwardEigenvectors)
-	{
-	  std::cout << "Writing backward eigenvalues and eigenvectors..."
-		    << std::endl;
-	  // transferSpec->writeSpectrumBackward(EigValBackwardFileName,
-	  // 				      EigVecBackwardFileName,
-	  // 				      fileFormat);
-	  transferSpec->writeEigValBackward(EigValBackwardFileName,
-	  				    fileFormat);
-	}
+      std::cout << "Writing forward eigenvalues and eigenvectors..."
+		<< std::endl;
+      transferSpec->writeEigValForward(EigValForwardFileName,
+				       fileFormat);
     }
   catch (std::exception &ex)
     {

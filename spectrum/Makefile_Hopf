@@ -1,6 +1,7 @@
 INCDIR=-I$(HOME)/local/include/
 LIBDIR=-L$(HOME)/local/lib/
 LIBS=-lgsl -lconfig++ -lergopack -lgomp -larpack
+#-lgslcblas
 CONFIG=../cfg/readConfig
 
 CC=icc -openmp
@@ -12,8 +13,7 @@ LDFLAGSGDB=$(LDFLAGSSTD) -gdb
 LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
 
-#EXE=spectrum
-EXE=spectrumSprinkle
+EXE=spectrum
 
 all:$(EXE).out
 	mkdir -p ../results/spectrum/eigval

@@ -30,8 +30,7 @@
  * A grid membership vector is calculated for each time series 
  * assigning to each realization a grid box.
  * Then, the membership matrix is calculated for a given lag.
- * The forward transition matrices as well as the initial distributions
- * are calculated from the membership matrix.
+ * The forward transition matrices are calculated from the membership matrix.
  * Finally, the results are printed.
  */
 
@@ -77,22 +76,26 @@ int main(int argc, char * argv[])
      readTransfer(&cfg);
      std::cout << "Sparsing success.\n" << std::endl;
     }
-  catch(const SettingNotFoundException &nfex) {
-    std::cerr << "Setting " << nfex.getPath() << " not found." << std::endl;
-    throw nfex;
+  catch(const SettingTypeException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " type exception." << std::endl;
+    throw ex;
   }
-  catch(const FileIOException &fioex) {
+  catch(const SettingNotFoundException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " not found." << std::endl;
+    throw ex;
+  }
+  catch(const SettingNameException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " name exception." << std::endl;
+    throw ex;
+  }
+  catch(const ParseException &ex) {
+    std::cerr << "Parse error at " << ex.getFile() << ":" << ex.getLine()
+              << " - " << ex.getError() << std::endl;
+    throw ex;
+  }
+  catch(const FileIOException &ex) {
     std::cerr << "I/O error while reading configuration file." << std::endl;
-    throw fioex;
-  }
-  catch(const ParseException &pex) {
-    std::cerr << "Parse error at " << pex.getFile() << ":" << pex.getLine()
-              << " - " << pex.getError() << std::endl;
-    throw pex;
-  }
-  catch(const SettingTypeException &stex) {
-    std::cerr << "Setting type exception." << std::endl;
-    throw stex;
+    throw ex;
   }
   catch (...)
     {
@@ -113,8 +116,7 @@ int main(int argc, char * argv[])
   gsl_spmatrix *T;
     
   // Transfer operator declarations
-  char forwardTransitionFileName[256], initDistFileName[256],
-    postfix[256], maskFileName[256];
+  char forwardTransitionFileName[256], postfix[256];
   transferOperator *transferOp;
 
   // Get lag
@@ -270,17 +272,6 @@ int main(int argc, char * argv[])
   transferOp->printForwardTransition(forwardTransitionFileName,
 				     fileFormat, "%.12lf");
 
-  // Write mask and initial distribution
-  sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
-	  resDir, postfix, fileFormat);
-  transferOp->printMask(maskFileName,
-			fileFormat, "%.12lf");
-  
-  sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
-	  resDir, postfix, fileFormat);
-  transferOp->printInitDist(initDistFileName,
-			    fileFormat, "%.12lf");
-      
   // Free
   delete transferOp;
   freeConfig();
