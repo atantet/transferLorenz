@@ -1,5 +1,7 @@
 # Emacs backups
 *~
+\#*
+.\#*
 
 # Mac files
 .DS_Store

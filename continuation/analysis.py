@@ -5,7 +5,7 @@ x, y, z, rho, sigma, beta = sp.symbols('x y z rho sigma beta')
 
 sigma0 = 10.
 beta0 = 8. / 3.
-rho0 = 24.06
+rho0 = 14.
 
 # Define vector fields
 F = sp.Matrix([sigma * (y - x), x * (rho - z) - y, x*y - beta * z])

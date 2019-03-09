@@ -82,17 +82,25 @@ contDir = '%s/continuation' % resDir
 plotDir = '%s/plot/' % resDir
 
 # Prepare plot
-fig = plt.figure(figsize=(8, 10))
+plotImag = False
+#plotImag = True
+if plotImag:
+    fig = plt.figure(figsize=(6, 9))
+else:
+    fig = plt.figure(figsize=(6, 6))
 ax = []
-#nPan = 100*(1+2*nCont) + 10 + 1
-nPan = 100*(1+2*1) + 10 + 1
+if plotImag:
+    nPan = 100*(1+2*1) + 10 + 1
+else:
+    nPan = 100*(1+1) + 10 + 1
 ax.append(fig.add_subplot(nPan))
 #for k in np.arange(nCont):
 for k in np.arange(1):
     nPan += 1
     ax.append(fig.add_subplot(nPan))
-    nPan += 1
-    ax.append(fig.add_subplot(nPan))
+    if plotImag:
+        nPan += 1
+        ax.append(fig.add_subplot(nPan))
 
 poL = []
 FloquetExpL = []
@@ -108,11 +116,12 @@ for k in np.arange(nCont):
     exp = np.log10(contAbs)
     mantis = sign * np.exp(np.log(contAbs) / exp)
     dstPostfix = "%s_cont%04d_contStep%de%d_dt%d_numShoot%d" \
-                 % (srcPostfix, int(initCont[dim] * 1000 + 0.1), int(mantis*1.01),
-                    (int(exp*1.01)), -np.round(np.log10(dtRng[k])),
-                    cfg.continuation.numShoot)
+                 % (srcPostfix, int(initCont[dim] * 1000 + 0.1),
+                    int(mantis*1.01), (int(exp*1.01)),
+                    -np.round(np.log10(dtRng[k])), cfg.continuation.numShoot)
     poFileName = '%s/poCont%s.%s' % (contDir, dstPostfix, fileFormat)
-    FloquetExpFileName = '%s/poExpCont%s.%s' % (contDir, dstPostfix, fileFormat)
+    FloquetExpFileName = '%s/poExpCont%s.%s' \
+                         % (contDir, dstPostfix, fileFormat)
 
     if (fileFormat == 'bin'):
         # Read fixed point and cont
@@ -141,12 +150,13 @@ for k in np.arange(nCont):
             FloquetExp[t, exp] = tmp[idx]
             tmp.pop(idx)
 
-    poL.append(po)
-    FloquetExpL.append(FloquetExp)
-    contL.append(contRng)
-    contLim[k, 0] = np.min(contRng)
-    contLim[k, 1] = np.max(contRng)
-    TRngL.append(TRng)
+    asort = np.argsort(contRng)
+    poL.append(po[asort])
+    FloquetExpL.append(FloquetExp[asort])
+    contL.append(contRng[asort])
+    TRngL.append(TRng[asort])
+    contLim[k, 0] = contRng[asort][0]
+    contLim[k, 1] = contRng[asort][-1]
     
     isStable = np.max(FloquetExp.real, 1) < 1.e-6
 
@@ -163,11 +173,11 @@ for k in np.arange(nCont):
     plt.setp(ax[1+2*k].get_yticklabels(), fontsize=fs_yticklabels)
 
     # Plot imaginary parts
-    ax[1+2*k+1].plot(contRng, FloquetExp.imag, linewidth=2)
-    ax[1+2*k+1].set_ylabel(r'$\Im(\lambda_i)$', fontsize=fs_latex)
-    plt.setp(ax[1+2*k+1].get_xticklabels(), fontsize=fs_xticklabels)
-    plt.setp(ax[1+2*k+1].get_yticklabels(), fontsize=fs_yticklabels)
-    ax[1+2*k+1].set_xlim(cfg.continuation.contMin, cfg.continuation.contMax)
+    if plotImag:
+        ax[1+2*k+1].plot(contRng, FloquetExp.imag, linewidth=2)
+        ax[1+2*k+1].set_ylabel(r'$\Im(\lambda_i)$', fontsize=fs_latex)
+        plt.setp(ax[1+2*k+1].get_xticklabels(), fontsize=fs_xticklabels)
+        plt.setp(ax[1+2*k+1].get_yticklabels(), fontsize=fs_yticklabels)
 ax[0].set_ylabel(r'$T$', fontsize=fs_latex)
 plt.setp(ax[0].get_xticklabels(), fontsize=fs_xticklabels)
 plt.setp(ax[0].get_yticklabels(), fontsize=fs_yticklabels)
@@ -175,7 +185,7 @@ ax[-1].set_xlabel(r'$\rho$', fontsize=fs_latex)
 for k in np.arange(len(ax)):
     ax[k].set_xlim(np.min(contLim[:, 0]), np.max(contLim[:, 1]))
 
-plt.savefig('%s/continuation/poCont%s.eps' % (plotDir, dstPostfix),
+fig.savefig('%s/continuation/poCont%s.eps' % (plotDir, dstPostfix),
             dpi=300, bbox_inches='tight')
 
 
@@ -210,14 +220,14 @@ for k in np.arange(len(initContRngFP)):
 
     isStable = np.max(eig.real, 1) < 0
 
-    plt.plot(fp[isStable, 0] + fp[isStable, 1], fp[isStable, 2], '-k',
-             linewidth=2)
-    plt.plot(fp[~isStable, 0] + fp[~isStable, 1], fp[~isStable, 2], '--k',
-             linewidth=2)
+    ax.plot(fp[isStable, 0] + fp[isStable, 1], fp[isStable, 2], '-k',
+            linewidth=2)
+    ax.plot(fp[~isStable, 0] + fp[~isStable, 1], fp[~isStable, 2], '--k',
+            linewidth=2)
 
-sampOrbitRng = [100, 2000, 10000]
-sampInit = [0, contL[1].shape[0]]
-for k in np.arange(nCont):
+sampOrbitRng = [150, 4000]
+sampInit = [0, 0]
+for k in np.arange(nCont-1, -1, -1):
     sampOrbit = sampOrbitRng[k]
     po = poL[k]
     FloquetExp = FloquetExpL[k]
@@ -240,31 +250,16 @@ for k in np.arange(nCont):
             ls = '-'
         else:
             ls = '--'
-        #plt.plot(xt[:, 0] + xt[:, 2], xt[:, 1], xt[:, 3],
+        #ax.plot(xt[:, 0] + xt[:, 2], xt[:, 1], xt[:, 3],
         #         linestyle=ls, linewidth=2)
-        plt.plot(xt[:, 0] + xt[:, 1], xt[:, 2], linestyle=ls, linewidth=2)
+        ax.plot(xt[:, 0] + xt[:, 1], xt[:, 2], linestyle=ls, linewidth=2,
+                label=r'$\rho = %.1f$' % cont)
         
-
-        # Last one
-    t = -1
-    cont = contRng[t]
-    T = TRng[t]
-    print 'Propagating orbit of period ', T, ' at cont = ', cont, \
-        ' from x(0) = ', po[t]
-    print 'Floquet = ', FloquetExp[t]
-    nt = int(np.ceil(T / dtRng[k]))
-    # propagate
-    p = [cont, cfg.model.sigma, cfg.model.beta]
-    xt = propagateRK4(po[t], field, p, dtRng[k]*10, nt/10)
-    if isStable[t]:
-        ls = '-'
-    else:
-        ls = '--'
-    plt.plot(xt[:, 0] + xt[:, 1], xt[:, 2], linestyle=ls, linewidth=2)
 
 # Homoclinic orbit
 print 'Propagating homoclinic orbit.'
-Th = T
+cont = contL[1][0]
+Th = TRngL[1][0]
 nt = int(np.ceil(Th / cfg.simulation.dt * 3.))
 # propagate
 p = [cont-0.1791603, cfg.model.sigma, cfg.model.beta]
@@ -274,13 +269,13 @@ p = [cont-0.1791603, cfg.model.sigma, cfg.model.beta]
 x0 = np.array([ 0.152511, 0.25898653, 0.49468841]) / 10000
 xt = propagateRK4(x0, field, p, cfg.simulation.dt*10, nt/10)
 spinup = int(Th*6 / cfg.simulation.dt / 10)
-line, = plt.plot(xt[:, 0] + xt[:, 1], xt[:, 2], '--k', linewidth=1)
-
+line, = ax.plot(xt[:, 0] + xt[:, 1], xt[:, 2], '--k', linewidth=1)
+ax.legend(loc='upper left', fontsize='x-large', ncol=2)
 ax.set_xlabel(r'$x + y$', fontsize=fs_latex)
 ax.set_ylabel(r'$z$', fontsize=fs_latex)
 # ax.set_xlim(-2.8, 2.8)
-# ax.set_ylim(1.2, 2.8)
+ax.set_ylim(0., 36.)
 plt.setp(ax.get_xticklabels(), fontsize=fs_xticklabels)
 plt.setp(ax.get_yticklabels(), fontsize=fs_yticklabels)
-plt.savefig('%s/continuation/poContOrbits%s.eps' % (plotDir, dstPostfix),
+fig.savefig('%s/continuation/poContOrbits%s.eps' % (plotDir, dstPostfix),
             dpi=300, bbox_inches='tight')

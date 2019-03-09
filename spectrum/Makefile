@@ -12,9 +12,6 @@ LDFLAGSGDB=$(LDFLAGSSTD) -gdb
 LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
 
-#EXE=spectrum
-EXE=spectrumSprinkle
-
 all:$(EXE).out
 	mkdir -p ../results/spectrum/eigval
 	mkdir -p ../results/spectrum/eigvec

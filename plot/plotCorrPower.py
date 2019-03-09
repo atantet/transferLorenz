@@ -1,4 +1,3 @@
-
 import os
 import sys
 import numpy as np
@@ -6,7 +5,8 @@ import matplotlib.pyplot as plt
 import pylibconfig2
 import ergoPlot
 
-configFile = sys.argv[1]
+configFile = '../cfg/Lorenz63.cfg'
+compName = ['x', 'y', 'z']
 cfg = pylibconfig2.Config()
 cfg.read_file(configFile)
 
@@ -15,8 +15,12 @@ if (hasattr(cfg.model, 'delaysDays')):
     for d in np.arange(len(cfg.model.delaysDays)):
         delayName = "%s_d%d" % (delayName, cfg.model.delaysDays[d])
 
-L = cfg.simulation.LCut + cfg.simulation.spinup
-printStepNum = int(cfg.simulation.printStep / cfg.simulation.dt + 0.1)
+#L = cfg.simulation.LCut + cfg.simulation.spinup
+#dt = cfg.simulation.dt
+#printStepNum = int(cfg.simulation.printStep / cfg.simulation.dt + 0.1)
+L = 101000
+dt = 1.e-5
+printStepNum = 1000
 caseName = cfg.model.caseName
 if (hasattr(cfg.model, 'rho') & hasattr(cfg.model, 'sigma') \
     & hasattr(cfg.model, 'beta')):
@@ -26,18 +30,18 @@ if (hasattr(cfg.model, 'rho') & hasattr(cfg.model, 'sigma') \
                   (int) (cfg.model.beta * 1000))
 srcPostfix = "_%s%s_L%d_spinup%d_dt%d_samp%d" \
              % (caseName, delayName, L, cfg.simulation.spinup,
-                -np.round(np.log10(cfg.simulation.dt)), printStepNum)
+                -np.round(np.log10(dt)), printStepNum)
 sampFreq = 1. / cfg.simulation.printStep
 lagMaxNum = int(np.round(cfg.stat.lagMax / cfg.simulation.printStep))
 lags = np.arange(-cfg.stat.lagMax,
                  cfg.stat.lagMax + 0.999 * cfg.simulation.printStep,
                  cfg.simulation.printStep)
 corrName = 'C%d%d' % (cfg.stat.idxf, cfg.stat.idxg)
-corrLabel = r'$C_{x_%d, x_%d}(t)$' % (cfg.stat.idxf + 1,
-                                      cfg.stat.idxg + 1)
+corrLabel = r'$C_{%s, %s}(t)$' % (compName[cfg.stat.idxf],
+                                      compName[cfg.stat.idxg])
 powerName = 'S%d%d' % (cfg.stat.idxf, cfg.stat.idxg)
-powerLabel = r'$S_{x_%d, x_%d}(\omega)$' % (cfg.stat.idxf + 1,
-                                            cfg.stat.idxg + 1)
+powerLabel = r'$S_{%s, %s}(\omega)$' % (compName[cfg.stat.idxf],
+                                            compName[cfg.stat.idxg])
 
 # Read ccf
 print 'Reading correlation function and periodogram...'

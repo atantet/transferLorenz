@@ -34,6 +34,10 @@
  */
 
 
+/** \brief Conversion from Cartesian to spherical coordinates. */
+void cart2Sphere(gsl_vector *x);
+void cart2Sphere(gsl_matrix *x);
+
 /** \brief Calculate transfer operators from time series.
  *
  *  After parsing the configuration file,
@@ -48,208 +52,190 @@
 int main(int argc, char * argv[])
 {
   // Read configuration file
-  if (argc < 2)
-    {
-      std::cout << "Enter path to configuration file:" << std::endl;
-      std::cin >> configFileName;
-    }
+  if (argc < 2) {
+    std::cout << "Enter path to configuration file:" << std::endl;
+    std::cin >> configFileName;
+  }
   else
-    {
-      strcpy(configFileName, argv[1]);
-    }
-  try
-   {
-     readConfig(configFileName);
-    }
-  catch (...)
-    {
-      std::cerr << "Error reading configuration file" << std::endl;
-      return(EXIT_FAILURE);
-    }
+    strcpy(configFileName, argv[1]);
+  try {
+    Config cfg;
+    std::cout << "Sparsing config file " << configFileName << std::endl;
+    cfg.readFile(configFileName);
+    readGeneral(&cfg);
+    readModel(&cfg);
+    readSimulation(&cfg);
+    readSprinkle(&cfg);
+    readGrid(&cfg);
+    readTransfer(&cfg);
+    std::cout << "Sparsing success.\n" << std::endl;
+  }
+  catch(const SettingTypeException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " type exception."
+	      << std::endl;
+    throw ex;
+  }
+  catch(const SettingNotFoundException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " not found." << std::endl;
+    throw ex;
+  }
+  catch(const SettingNameException &ex) {
+    std::cerr << "Setting " << ex.getPath() << " name exception."
+	      << std::endl;
+    throw ex;
+  }
+  catch(const ParseException &ex) {
+    std::cerr << "Parse error at " << ex.getFile() << ":" << ex.getLine()
+              << " - " << ex.getError() << std::endl;
+    throw ex;
+  }
+  catch(const FileIOException &ex) {
+    std::cerr << "I/O error while reading configuration file." << std::endl;
+    throw ex;
+  }
+  catch (...) {
+    std::cerr << "Error reading configuration file" << std::endl;
+    return(EXIT_FAILURE);
+  }
 
   // Observable declarations
   char srcFileName[256];
   FILE *srcStream;
-  gsl_matrix *traj;
-  size_t seed;
-  double xmin, xmax;
-  std::vector<gsl_matrix *> statesSeeds(nSeeds);
+  std::vector<gsl_matrix *> statesTraj(nTraj);
 
   // Grid declarations
   Grid *grid;
+  char gridFileName[256];
 
   // Grid membership declarations
   char gridMemFileName[256];
   FILE *gridMemStream;
   gsl_matrix_uint *gridMemMatrix;
-  std::vector<gsl_vector_uint *> gridMemSeeds(nSeeds);
-  bool getGridLimits = false;
+  std::vector<gsl_vector_uint *> gridMemTraj(nTraj);
     
   // Transfer operator declarations
   char forwardTransitionFileName[256], initDistFileName[256],
     backwardTransitionFileName[256], finalDistFileName[256],
-    postfix[256], maskFileName[256];
+    maskFileName[256], srcPostfix[256], dstPostfix[256], dstPostfixTau[256];
 
   size_t tauNum;
   double tau;
   transferOperator *transferOp;
 
+  sprintf(srcPostfix, "_%s_rho%04d_L%d_spinup%d_dt%d_samp%d", caseName,
+	  (int) (p["rho"] * 100 + 0.1), (int) L, (int) spinup,
+	  (int) (round(-gsl_sf_log(dt)/gsl_sf_log(10)) + 0.1),
+	  (int) printStepNum);
   
   // Get grid membership matrix
-  if (! readGridMem)
-    {
+  if (! readGridMem) {
+    // Iterate one simulation per traj
+    for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
+      // Get membership vector
+      sprintf(srcFileName, "%s/simulation/sim%s_traj%d.%s",
+	      resDir, srcPostfix, (int) traj, fileFormat);
+	  
+      // Open time series file
+      if ((srcStream = fopen(srcFileName, "r")) == NULL) {
+	fprintf(stderr, "Can't open source file %s for reading:",
+		srcFileName);
+	perror("");
+	return(EXIT_FAILURE);
+      }
+
+      // Read one-dimensional time series
+      std::cout << "Reading trajectory in " << srcFileName << std::endl;
       // Allocate trajectory and grid limits
-      traj = gsl_matrix_alloc(nt0, dim);
-      if (!(gridLimitsLow && gridLimitsUp))
-	{
-	  getGridLimits = true;
-	  gridLimitsLow = gsl_vector_alloc(dimObs);
-	  gridLimitsUp = gsl_vector_alloc(dimObs);
-	  gsl_vector_set_all(gridLimitsLow, 1.e30);
-	  gsl_vector_set_all(gridLimitsUp, -1.e30);
-	}
-      
-      // Iterate one simulation per seed
-      for (size_t s = 0; s < nSeeds; s++)
-	{
-	  // Get seed and set random number generator
-	  seed = gsl_vector_uint_get(seedRng, s);
-	  
-	  // Get membership vector
-	  sprintf(srcFileName, "%s/simulation/sim%s_seed%d.%s",
-		  resDir, srcPostfix, (int) seed, fileFormat);
-	  
-	  // Open time series file
-	  if ((srcStream = fopen(srcFileName, "r")) == NULL)
-	    {
-	      fprintf(stderr, "Can't open source file %s for reading:",
-		      srcFileName);
-	      perror("");
-	      return(EXIT_FAILURE);
-	    }
+      statesTraj[traj] = gsl_matrix_alloc(nt0, dim);
+      if (strcmp(fileFormat, "bin") == 0)
+	gsl_matrix_fread(srcStream, statesTraj[traj]);
+      else
+	gsl_matrix_fscanf(srcStream, statesTraj[traj]);
 
-	  // Read one-dimensional time series
-	  std::cout << "Reading trajectory in " << srcFileName << std::endl;
-	  if (strcmp(fileFormat, "bin") == 0)
-	    gsl_matrix_fread(srcStream, traj);
-	  else
-	    gsl_matrix_fscanf(srcStream, traj);
+      // Close trajectory file
+      fclose(srcStream);
 
-	  // Define observable
-	  statesSeeds[s] = gsl_matrix_alloc(nt, (size_t) dimObs);
-	  for (size_t d = 0; d < (size_t) dimObs; d++)
-	    {
-	      gsl_vector_const_view view 
-		= gsl_matrix_const_subcolumn(traj,
-					     gsl_vector_uint_get(components, d),
-					     embedMax
-					     - gsl_vector_uint_get(embedding, d),
-					     nt);
-	      gsl_matrix_set_col(statesSeeds[s], d, &view.vector);
-
-	      // Save min max values of observable to define fix limits grid
-	      if (getGridLimits)
-		{
-		  gsl_vector_minmax(&view.vector, &xmin, &xmax);
-		  if (xmin < gsl_vector_get(gridLimitsLow, d))
-		    gsl_vector_set(gridLimitsLow, d, xmin - 1.e-12);
-		  if (xmax > gsl_vector_get(gridLimitsUp, d))
-		    gsl_vector_set(gridLimitsUp, d, xmax + 1.e-12);
-		}
-	    }
-	  
-	  // Close trajectory file
-	  fclose(srcStream);
-	}
-
-      // Free
-      gsl_matrix_free(traj);
-
-      
-      // Define grid
-      grid = new RegularGrid(nx, gridLimitsLow, gridLimitsUp);
-    
-      // Print grid
-      grid->printGrid(gridFileName, "%.12lf", true);
-    
-
-      // Get grid membership for each seed
-      for (size_t s = 0; s < nSeeds; s++)
-	{
-	  seed = gsl_vector_uint_get(seedRng, s);
-
-	  // Grid membership file name
-	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%d.%s",
-		  resDir, gridPostfix, (int) seed, fileFormat);
-  
-	  // Open grid membership vector stream
-	  if ((gridMemStream = fopen(gridMemFileName, "w")) == NULL)
-	    {
-	      fprintf(stderr, "Can't open %s for writing:", gridMemFileName);
-	      perror("");
-	      return(EXIT_FAILURE);
-	    }
-    
-	  // Get grid membership vector
-	  std::cout << "Getting grid membership vector for seed "
-		    << seed << std::endl;
-	  gridMemSeeds[s] = getGridMemVector(statesSeeds[s], grid);
-
-	  // Write grid membership
-	  if (strcmp(fileFormat, "bin") == 0)
-	    gsl_vector_uint_fwrite(gridMemStream, gridMemSeeds[s]);
-	  else
-	    gsl_vector_uint_fprintf(gridMemStream, gridMemSeeds[s], "%d");
-
-	  // Free states and close stream
-	  gsl_matrix_free(statesSeeds[s]);
-	  fclose(gridMemStream);
-	}
-
-      // Free
-      delete grid;
-    }
-  else
-    {
-      // Read grid membership for each seed
-      for (size_t s = 0; s < nSeeds; s++)
-	{
-	  seed = gsl_vector_uint_get(seedRng, s);
-
-	  // Grid membership file name
-	  sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s_seed%d.%s",
-		  resDir, gridPostfix, (int) seed, fileFormat);
-	  
-	  // Open grid membership stream for reading
-	  std::cout << "Reading grid membership vector for seed "
-		    << seed << " at " << gridMemFileName << std::endl;
-	  
-	  if ((gridMemStream = fopen(gridMemFileName, "r")) == NULL)
-	    {
-	      fprintf(stderr, "Can't open %s for writing:", gridMemFileName);
-	      perror("");
-	      return(EXIT_FAILURE);
-	    }
-      
-	  // Read grid membership
-	  gridMemSeeds[s] = gsl_vector_uint_alloc(nt);
-	  if (strcmp(fileFormat, "bin") == 0)
-	    gsl_vector_uint_fread(gridMemStream, gridMemSeeds[s]);
-	  else
-	    gsl_vector_uint_fscanf(gridMemStream, gridMemSeeds[s]);
-
-	  // Close stream
-	  fclose(gridMemStream);
-	}
+      // Convert to spherical coordinates
+      cart2Sphere(statesTraj[traj]);
     }
 
-  
+    // Define grid
+    grid = new RegularGrid(nx, gridLimitsLow, gridLimitsUp);
+    
+    // Print grid
+    sprintf(gridFileName, "%s/grid/grid_%s%s.txt", resDir, caseName,
+	    gridPostfix);
+    grid->printGrid(gridFileName, "%.12lf", true);
+    sprintf(dstPostfix, "%s_nTraj%d%s", srcPostfix, (int) nTraj,
+	    gridPostfix);
 
-  // Get transition matrices for the first lag only (memory reasons)
-  size_t lag = 0;
-  tau = gsl_vector_get(tauRng, lag);
+    
+    // Get grid membership for each traj
+    for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
+      // Grid membership file name
+      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
+	      resDir, dstPostfix, fileFormat);
+  
+      // Open grid membership vector stream
+      if ((gridMemStream = fopen(gridMemFileName, "w")) == NULL) {
+	fprintf(stderr, "Can't open %s for writing:", gridMemFileName);
+	perror("");
+	return(EXIT_FAILURE);
+      }
+    
+      // Get grid membership vector
+      std::cout << "Getting grid membership vector for traj "
+		<< traj << std::endl;
+      gridMemTraj[traj] = getGridMemVector(statesTraj[traj], grid);
+
+      // Write grid membership
+      if (strcmp(fileFormat, "bin") == 0)
+	gsl_vector_uint_fwrite(gridMemStream, gridMemTraj[traj]);
+      else
+	gsl_vector_uint_fprintf(gridMemStream, gridMemTraj[traj], "%d");
+
+      // Free states and close stream
+      gsl_matrix_free(statesTraj[traj]);
+      fclose(gridMemStream);
+    }
+
+    // Free
+    delete grid;
+  }
+  else {
+    // Read grid membership for each traj
+    for (size_t traj = 0; traj < (size_t) nTraj; traj++) {
+      // Grid membership file name
+      sprintf(gridMemFileName, "%s/transfer/gridMem/gridMem%s.%s",
+	      resDir, dstPostfix, fileFormat);
+	  
+      // Open grid membership stream for reading
+      std::cout << "Reading grid membership vector for traj "
+		<< traj << " at " << gridMemFileName << std::endl;
+	  
+      if ((gridMemStream = fopen(gridMemFileName, "r")) == NULL) {
+	fprintf(stderr, "Can't open %s for writing:", gridMemFileName);
+	perror("");
+	return(EXIT_FAILURE);
+      }
+      
+      // Read grid membership
+      gridMemTraj[traj] = gsl_vector_uint_alloc(nt);
+      if (strcmp(fileFormat, "bin") == 0)
+	gsl_vector_uint_fread(gridMemStream, gridMemTraj[traj]);
+      else
+	gsl_vector_uint_fscanf(gridMemStream, gridMemTraj[traj]);
+
+      // Close stream
+      fclose(gridMemStream);
+    }
+  }
+
+  
+  // Get transition matrices for different lags
+  tau = gsl_vector_get(tauRng, 0);
   tauNum = (size_t) round(tau / printStep + 0.1);
-  sprintf(postfix, "%s_tau%03d", gridPostfix, (int) (tau * 1000));
+  sprintf(dstPostfixTau, "%s_tau%03d", dstPostfix, (int) (tau * 1000 + 0.1));
 
   std::cout << "\nConstructing transfer operator for a lag of "
 	    << tau << std::endl;
@@ -258,66 +244,72 @@ int main(int argc, char * argv[])
   // Get full membership matrix
   std::cout << "Getting full membership matrix from the list \
 of membership vecotrs..." << std::endl;
-  gridMemMatrix = memVectorList2memMatrix(&gridMemSeeds, tauNum);
+  gridMemMatrix = memVectorList2memMatrix(&gridMemTraj, tauNum);
 
-  // Free gridMemSeeds to save memory before to build transfer operator
-  for (size_t s = 0; s < nSeeds; s++)
-    gsl_vector_uint_free(gridMemSeeds[s]);
-
-  
+      
   // Get transition matrices as CSR
   std::cout << "Building stationary transfer operator..." << std::endl;
   transferOp = new transferOperator(gridMemMatrix, N, stationary);
-  
 
   // Write results
   // Write forward transition matrix
   std::cout << "Writing forward transition matrix and initial distribution..."
 	    << std::endl;
   sprintf(forwardTransitionFileName,
-	  "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
-	  resDir, postfix, fileFormat);
+	  "%s/transfer/forwardTransition/forwardTransition%s.crs%s",
+	  resDir, dstPostfixTau, fileFormat);
   transferOp->printForwardTransition(forwardTransitionFileName,
 				     fileFormat, "%.12lf");
 
   // Write mask and initial distribution
   sprintf(maskFileName, "%s/transfer/mask/mask%s.%s",
-	  resDir, gridPostfix, fileFormat);
+	  resDir, dstPostfix, fileFormat);
   transferOp->printMask(maskFileName,
 			fileFormat, "%.12lf");
-  
+
   sprintf(initDistFileName, "%s/transfer/initDist/initDist%s.%s",
-	  resDir, gridPostfix, fileFormat);
+	  resDir, dstPostfix, fileFormat);
   transferOp->printInitDist(initDistFileName,
 			    fileFormat, "%.12lf");
-  
-  // Write backward transition matrix
-  if (!stationary)
-    {
-      std::cout << "Writing backward transition matrix \
-and final distribution..." << std::endl;
-      sprintf(backwardTransitionFileName,
-	      "%s/transfer/backwardTransition/backwardTransition%s.coo%s",
-	      resDir, postfix, fileFormat);
-      transferOp->printBackwardTransition(backwardTransitionFileName,
-					  fileFormat, "%.12lf");
       
-      // Write final distribution 
-      sprintf(finalDistFileName,
-	      "%s/transfer/finalDist/finalDist%s.%s",
-	      resDir, postfix, fileFormat);
-      transferOp->printFinalDist(finalDistFileName,
-				 fileFormat, "%.12lf");
-    }
+  // Write backward transition matrix
+  if (!stationary) {
+    std::cout << "Writing backward transition matrix \
+and final distribution..." << std::endl;
+    sprintf(backwardTransitionFileName,
+	    "%s/transfer/backwardTransition/backwardTransition%s.crs%s",
+	    resDir, dstPostfixTau, fileFormat);
+    transferOp->printBackwardTransition(backwardTransitionFileName,
+					fileFormat, "%.12lf");
 
-  
-  // Free membership matrix and transfer operator
+    // Write final distribution 
+    sprintf(finalDistFileName,
+	    "%s/transfer/finalDist/finalDist%s.%s",
+	    resDir, dstPostfixTau, fileFormat);
+    transferOp->printFinalDist(finalDistFileName,
+			       fileFormat, "%.12lf");
+  }
+	
+  // Free
   delete transferOp;
   gsl_matrix_uint_free(gridMemMatrix);
 
-  // Free config
-  freeConfig();
+  // Free
+  for (size_t traj = 0; traj < (size_t) nTraj; traj++)
+    gsl_vector_uint_free(gridMemTraj[traj]);
+
+
+void
+cart2Sphere(gsl_matrix *X)
+{
+  gsl_vector_view row;
   
-  return 0;
+  for (size_t k = 0; k < X->size1; k++) {
+    row = gsl_matrix_row(X, k);
+    cart2Sphere(&row.vector);
+  }
+
+  return;
 }
+
 

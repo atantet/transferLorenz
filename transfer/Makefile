@@ -12,9 +12,6 @@ LDFLAGSGDB=$(LDFLAGSSTD) -gdb
 LDFLAGS=$(LDFLAGSSTD)
 #LDFLAGS=$(LDFLAGSGDB)
 
-#EXE=transfer
-EXE=simTransfer
-
 all:$(EXE).out
 	mkdir -p ../results/grid
 	mkdir -p ../results/transfer/forwardTransition

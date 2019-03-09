@@ -58,9 +58,11 @@ int main(int argc, char * argv[])
   char dstFileName[256], dstPostfix[256];
   FILE *dstStream;
 
-  // Time related variables
+  // Time related variables and allocation
   size_t nt = (size_t) (LCut / dt + 0.1);
   size_t ntSamp = nt / printStepNum;
+  gsl_matrix *X = gsl_matrix_alloc(ntSamp, dim);
+  gsl_vector_view view;
   
   // Define field
   std::cout << "Defining deterministic vector field..." << std::endl;
@@ -81,7 +83,8 @@ int main(int argc, char * argv[])
 
   // Define linearized model and initialize at initState (setting matrix to identity)
   std::cout << "Defining linearized model..." << std::endl;
-  fundamentalMatrixModel *linMod = new fundamentalMatrixModel(mod, Jacobian, initState);
+  fundamentalMatrixModel *linMod
+    = new fundamentalMatrixModel(mod, Jacobian, initState);
 
 
   // Allocation
@@ -109,7 +112,8 @@ int main(int argc, char * argv[])
   gsl_rng * r = gsl_rng_alloc(gsl_rng_ranlxs1);
   gsl_rng_set(r, gsl_vector_uint_get(seedRng, 0));
 
-  // Propagate for the spinup period and update Jacobian and fundamental matrix
+  // Propagate for the spinup period and update Jacobian
+  // and fundamental matrix
   std::cout << "Integrating for the spinup period..." << std::endl;
   linMod->mod->integrateForward(spinup, dt);
   linMod->setCurrentState();
@@ -123,6 +127,8 @@ int main(int argc, char * argv[])
   // Allocate and initialize random set of vectors
   tri[0] = gsl_matrix_alloc(dim, dim);
   CLV[0] = gsl_matrix_alloc(dim, dim);
+  view = gsl_matrix_row(X, 0);
+  gsl_vector_memcpy(&view.vector, linMod->mod->current);
   for (size_t i = 0; i < (size_t) dim; i++)
     for (size_t j = 0; j < (size_t) dim; j++)
       gsl_matrix_set(Q, i, j, gsl_ran_flat(r, -1., 1.));
@@ -161,7 +167,8 @@ int main(int argc, char * argv[])
       // Compute the Lyapunov exponents
       for (size_t i = 0; i < (size_t) dim; i++)
 	{
-	  Lyap = gsl_sf_log(sqrt(gsl_pow_2(gsl_matrix_get(tri[ktSamp - 1], i, i))));
+	  Lyap = gsl_sf_log(sqrt(gsl_pow_2(gsl_matrix_get(tri[ktSamp - 1],
+							  i, i))));
 	  
 	  // Integrate the Lyapunov exponents
 	  gsl_vector_set(LyapExp, i, gsl_vector_get(LyapExp, i) + Lyap);
@@ -170,6 +177,10 @@ int main(int argc, char * argv[])
       // Update Jacobian to current model state (already iterated)
       // and set fundamental matrix to identity
       linMod->setCurrentState();
+
+      // Record state
+      view = gsl_matrix_row(X, ktSamp);
+      gsl_vector_memcpy(&view.vector, linMod->mod->current);
     }
   
   // Get Last trigangular matrix (already allocated)
@@ -184,7 +195,8 @@ int main(int argc, char * argv[])
   // Compute the Lyapunov exponents
   for (size_t i = 0; i < (size_t) dim; i++)
     {
-      Lyap = gsl_sf_log(sqrt(gsl_pow_2(gsl_matrix_get(tri[ntSamp - 1], i, i))));
+      Lyap = gsl_sf_log(sqrt(gsl_pow_2(gsl_matrix_get(tri[ntSamp - 1],
+						      i, i))));
       
       // Integrate the Lyapunov exponents
       gsl_vector_set(LyapExp, i, gsl_vector_get(LyapExp, i) + Lyap);
@@ -224,7 +236,6 @@ int main(int argc, char * argv[])
     }
 
   // Step backward to unfold CLVs
-  gsl_vector_view view;
   double stretch;
   for (int ktSamp = (int) (ntSamp-1); ktSamp >= 0; ktSamp--)
     {
@@ -258,12 +269,30 @@ int main(int argc, char * argv[])
 
   // Define names and open destination file
   std::cout << "Writing results..." << std::endl;
-  sprintf(dstPostfix, "%s_L%d_spinup%d_dt%d_samp%d", srcPostfixModel, (int) L,
-	  (int) spinup, (int) (round(-gsl_sf_log(dt)/gsl_sf_log(10)) + 0.1),
+  sprintf(dstPostfix, "_%s_rho%04d_L%d_spinup%d_dt%d_samp%d", caseName,
+	  (int) (rho * 100 + 0.1), (int) L, (int) spinup,
+	  (int) (round(-gsl_sf_log(dt)/gsl_sf_log(10)) + 0.1),
 	  (int) printStepNum);
   
+  // Save time series
+  sprintf(dstFileName, "%s/CLV/ts%s.%s", resDir, dstPostfix,
+	  fileFormat);
+  if (!(dstStream = fopen(dstFileName, "w")))
+    {
+      std::cerr << "Can't open " << dstFileName
+		<< " for writing time series: " << std::endl;;
+      perror("");
+      return EXIT_FAILURE;
+    }
+  if (strcmp(fileFormat, "bin") == 0)
+    gsl_matrix_fwrite(dstStream, X);
+  else
+    gsl_matrix_fprintf(dstStream, X, "%lf");
+  fclose(dstStream);
+  
   // Save Lyapunov exponents
-  sprintf(dstFileName, "%s/CLV/LyapExp%s.%s", resDir, dstPostfix, fileFormat);
+  sprintf(dstFileName, "%s/CLV/LyapExp%s.%s", resDir, dstPostfix,
+	  fileFormat);
   if (!(dstStream = fopen(dstFileName, "w")))
     {
       std::cerr << "Can't open " << dstFileName
@@ -278,7 +307,8 @@ int main(int argc, char * argv[])
   fclose(dstStream);
 
   // Save Stretching rates
-  sprintf(dstFileName, "%s/CLV/stretchRate%s.%s", resDir, dstPostfix, fileFormat);
+  sprintf(dstFileName, "%s/CLV/stretchRate%s.%s", resDir, dstPostfix,
+	  fileFormat);
   if (!(dstStream = fopen(dstFileName, "w")))
     {
       std::cerr << "Can't open " << dstFileName

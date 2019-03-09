@@ -12,6 +12,7 @@
 #include <gsl/gsl_sf_log.h>
 #include <libconfig.h++>
 #include <configAR.hpp>
+#include <ergoParam.hpp>
 
 
 using namespace libconfig;
@@ -20,9 +21,7 @@ using namespace libconfig;
 extern char resDir[256];               //!< Root directory in which results are written
 extern char caseName[256];             //!< Name of the case to simulate 
 extern char caseNameModel[256];        //!< Name of the case to simulate 
-extern double rho;                     //!< Parameters for the Lorenz flow
-extern double sigma;                   //!< Parameters for the Lorenz flow
-extern double beta;                    //!< Parameters for the Lorenz flow
+extern param p;                        //!< Model adimensional parameters
 extern char fileFormat[256];          //!< File format of output ("txt" or "bin")
 extern char delayName[256];            //!< Name associated with the number and values of the delays
 extern int dim;                        //!< Dimension of the phase space
@@ -85,34 +84,34 @@ extern bool makeBiorthonormal;         //!< Whether to make eigenvectors biortho
 
 
 /** \brief Sparse general configuration section. */
-void readGeneral(const Config *cfg);
+void readGeneral(const Config *cfg, const bool verboseCFG=true);
 
 /** \brief Sparse model configuration section. */
-void readModel(const Config *cfg);
+void readModel(const Config *cfg, const bool verboseCFG=true);
 
 /** \brief Sparse continuation configuration section. */
-void readContinuation(const Config *cfg);
+void readContinuation(const Config *cfg, const bool verboseCFG=true);
 
 /** \brief Sparse simulation configuration section. */
-void readSimulation(const Config *cfg);
+void readSimulation(const Config *cfg, const bool verboseCFG=true);
 
 /** \brief Sparse sprinkle configuration section. */
-void readSprinkle(const Config *cfg);
+void readSprinkle(const Config *cfg, const bool verboseCFG=true);
 
 /** \brief Sparse observable configuration section. */
-void readObservable(const Config *cfg);
+void readObservable(const Config *cfg, const bool verboseCFG=true);
 
 /** \brief Sparse grid configuration section. */
-void readGrid(const Config *cfg);
+void readGrid(const Config *cfg, const bool verboseCFG=true);
 
 /** \brief Sparse transfer configuration section. */
-void readTransfer(const Config *cfg);
+void readTransfer(const Config *cfg, const bool verboseCFG=true);
 
 /** \brief Sparse spectrum configuration section. */
-void readSpectrum(const Config *cfg);
+void readSpectrum(const Config *cfg, const bool verboseCFG=true);
 
 /** \brief Sparse all configuration sections. */
-void readConfig(const char *cfgFileName);
+void readConfig(const char *cfgFileName, const bool verboseCFG=true);
 
 /**
  * Free memory allocated during configuration.

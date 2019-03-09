@@ -1,0 +1,45 @@
+#INCDIR=-I/opt/local/lib/hdf5-18/include/
+#LIBDIR=-L/opt/local/lib/hdf5-18/lib/
+# Import trilinos variables
+include $(TRILINOS_BUILD)/Makefile.export.Trilinos_install
+
+TRILINOS_LIB=-lanasaziepetra -lanasazi -lepetraext -lepetra -lteuchosremainder -lteuchosnumerics -lteuchoscomm -lteuchosparameterlist -lteuchoscore 
+
+LIBS=-lgsl -lconfig++ -lergopack -lopenblas -lgomp  $(TRILINOS_LIB)
+#-lhdf5_cpp
+CONFIG=../cfg/readConfig
+
+#CC=g++
+CXX=$(Trilinos_CXX_COMPILER)
+OMPFLAGS=-fopenmp
+#WARN=-Wall -Wformat=0
+#CFLAGS=$(WARN) -pedantic-errors -O3
+CFLAGS=$(Trilinos_CXX_COMPILER_FLAGS) 
+LDFLAGSSTD=-undefined dynamic_lookup
+LDFLAGSGDB=$(LDFLAGSSTD) -gdb
+
+LDFLAGS=$(LDFLAGSSTD)
+#LDFLAGS=$(LDFLAGSGDB)
+
+#EXE=spectrumAnasazi
+EXE=simTransferSpectrum
+
+all:$(EXE).out
+	mkdir -p ../results/spectrum/eigval
+	mkdir -p ../results/spectrum/eigvec
+	mkdir -p ../results/spectrum/conditionNumbers
+
+$(EXE).o:$(EXE).cpp 
+	$(CXX) $(OMPFLAGS) -c $(CFLAGS) $(INCDIR) -o $@ $<
+
+$(CONFIG).o:$(CONFIG).cpp
+	$(CXX) $(OMPFLAGS) -c $(CFLAGS) $(INCDIR) -o $@ $<
+
+$(EXE).out:$(EXE).o $(CONFIG).o
+	$(CXX) $(OMPFLAGS) $(LDFLAGS) -o $@ $^ $(LIBDIR) $(LIBS)
+
+clean:
+	rm -f $(EXE).o $(EXE).out
+
+cleanall:
+	rm -f $(EXE).o $(CONFIG).o $(EXE).out

@@ -91,24 +91,26 @@ int main(int argc, char * argv[])
       gsl_rng_set(r, seed);
 
       // Define names and open destination file
-      sprintf(dstPostfix, "%s_L%d_spinup%d_dt%d_samp%d", srcPostfixModel, (int) L,
-	      (int) spinup, (int) (round(-gsl_sf_log(dt)/gsl_sf_log(10)) + 0.1),
+      sprintf(dstPostfix, "%s_L%d_spinup%d_dt%d_samp%d", srcPostfixModel,
+	      (int) L, (int) spinup,
+	      (int) (round(-gsl_sf_log(dt)/gsl_sf_log(10)) + 0.1),
 	      (int) printStepNum);
       sprintf(dstFileName, "%s/simulation/sim%s_seed%d.%s",
 	      resDir, dstPostfix, (int) seed, fileFormat);
 >>>>>>> 753572aebb1cc5164212e76d5de8decc47e5d291
       if (!(dstStream = fopen(dstFileName, "w")))
 	{
-	  std::cerr << "Can't open " << dstFileName << " for writing simulation: "
-		    << std::endl;;
+	  std::cerr << "Can't open " << dstFileName
+		    << " for writing simulation: " << std::endl;;
 	  perror("");
 	  return EXIT_FAILURE;
 	}
 
       // Get random initial distribution
-      gsl_vector_set(initState, 0, gsl_ran_flat(r, -20, 20));
-      gsl_vector_set(initState, 1, gsl_ran_flat(r, -30, 30));
-      gsl_vector_set(initState, 2, gsl_ran_flat(r, 0, 50));
+      for (size_t d = 0; d < (size_t) dim; d++) {
+	gsl_vector_set(initState, d,
+		       gsl_ran_flat(r, gsl_vector_get(minInitState, d),
+				    gsl_vector_get(maxInitState, d));
 
       // Set initial state
       printf("Setting initial state to (%.1lf, %.1lf, %.1lf)\n",
@@ -119,7 +121,7 @@ int main(int argc, char * argv[])
 
       // Numerical integration
       std::cout << "Integrating simulation..." << std::endl;
-      mod->integrateForward(initState, L, dt, spinup, printStepNum, &X);
+      mod->integrate(initState, L, dt, spinup, printStepNum, &X);
 
       // Write results
       std::cout << "Writing..." << std::endl;

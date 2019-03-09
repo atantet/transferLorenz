@@ -11,7 +11,7 @@
 #include "../cfg/readConfig.hpp"
 
 
-/** \file spectrum.cpp
+/** \file spectrumSprinkle.cpp
  *  \ingroup examples
  *  \brief Get spectrum of transfer operators.
  *   
@@ -103,9 +103,6 @@ int main(int argc, char * argv[])
   sprintf(forwardTransitionFileName, \
 	  "%s/transfer/forwardTransition/forwardTransition%s.coo%s",
 	  resDir, postfix, fileFormat);
-  sprintf(EigValForwardFileName,
-	  "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
-	  resDir, nev, postfix, fileFormat);
   sprintf(EigValForwardFileName,
 	  "%s/spectrum/eigval/eigvalForward_nev%d%s.%s",
 	  resDir, nev, postfix, fileFormat);
